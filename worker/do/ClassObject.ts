@@ -148,11 +148,18 @@ export class ClassObject extends DurableObject<Env> {
     return (tag ? this.ctx.getWebSockets(tag) : this.ctx.getWebSockets()).filter(isOpen);
   }
 
+  /**
+   * 접속 중인 학생. 클래스 소켓뿐 아니라 방 소켓도 센다.
+   * 방에 들어간 학생은 클래스 소켓을 닫으므로, 방 쪽을 세지 않으면 전부 오프라인으로 보인다.
+   */
   private connectedStudentIds(): Set<string> {
     const set = new Set<string>();
     for (const ws of this.openSockets()) {
       const a = getAttachment<Attachment>(ws);
       if (a?.kind === 'student') set.add(a.studentId);
+    }
+    for (const room of this.roomSummaries()) {
+      for (const userId of room.connectedUserIds ?? []) set.add(userId);
     }
     return set;
   }
@@ -201,6 +208,8 @@ export class ClassObject extends DurableObject<Env> {
     if (identity.kind === 'teacher') {
       return { ...base, members, me: { kind: 'teacher' } };
     }
+    // 학생에게는 방의 접속자 목록을 내려보내지 않는다 (필요 없고, 알 이유도 없다)
+    base.rooms = rooms.map(({ connectedUserIds: _drop, ...rest }) => rest);
     const me = this.member(identity.studentId);
     return {
       ...base,

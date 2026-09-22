@@ -8,7 +8,7 @@ import { noteServerTime } from '../lib/clock';
 import { navigate } from '../lib/router';
 import { getStudentSession } from '../lib/session';
 import { useSocket } from '../lib/useSocket';
-import { BadgeMark, ConfirmModal, ConnectionBanner, Illustration, Logo, Notice, Page, PageBackdrop, Pill, TopBar, useAsyncAction, useToast } from '../components/ui';
+import { BadgeMark, ConfirmModal, ConnectionBanner, Illustration, Logo, Notice, Page, Pill, TopBar, useAsyncAction, useToast } from '../components/ui';
 import { DrawView, GuessView, PromptSelectView } from './PlayViews';
 import { MonitorView } from './MonitorView';
 import { RevealView, type Reaction } from './RevealView';
@@ -157,8 +157,6 @@ export function RoomPage({ roomId, mode, classId }: Props) {
 
   return (
     <Page wide={usesWideLayout(snap)}>
-      {/* 대기실까지만 배경을 둔다. 게임이 시작되면 작업 화면에 집중하도록 뺀다. */}
-      {snap.status === 'LOBBY' && <PageBackdrop />}
       <ConnectionBanner state={state} detail={detail} />
       <RoomHeader snap={snap} mode={mode} classId={classId} sock={sock.current} />
       {snap.observers.teacher && <div className="mb-3 text-center text-xs font-bold text-ink-2">👀 선생님 참관 중</div>}

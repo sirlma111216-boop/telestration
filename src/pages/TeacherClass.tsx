@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import type { ClassMemberView, ClassSnapshot, HostMode, RoomSummary } from '@shared/types';
 import { noteServerTime } from '../lib/clock';
 import { navigate } from '../lib/router';
 import { useSocket } from '../lib/useSocket';
-import { ConfirmModal, ConnectionBanner, Modal, Notice, Page, PageBackdrop, Pill, RETENTION_NOTICE, TopBar, useAsyncAction, useToast } from '../components/ui';
+import { ConfirmModal, ConnectionBanner, Modal, Notice, Page, Pill, RETENTION_NOTICE, TopBar, useAsyncAction, useToast } from '../components/ui';
 import { statusLabel } from './roomShared';
+import type { DemoBotState } from '../lib/demoBots';
 
 function wsUrl(path: string): string {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -22,7 +23,20 @@ export function TeacherClassPage({ classId }: { classId: string }) {
   const [showQr, setShowQr] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [confirm, setConfirm] = useState<{ title: string; message: string; label: string; danger?: boolean; run: () => Promise<unknown> } | null>(null);
+  const [bots, setBots] = useState<DemoBotState | null>(null);
+  const [botRoom, setBotRoom] = useState<RoomSummary | null>(null);
+  const botsRef = useRef<typeof import('../lib/demoBots').demoBots | null>(null);
   const { busy, run } = useAsyncAction();
+
+  // 데모봇 코드는 교사가 버튼을 누를 때만 내려받는다. 학생 기기는 받지 않는다.
+  const loadBots = useCallback(async () => {
+    if (!botsRef.current) {
+      const mod = await import('../lib/demoBots');
+      botsRef.current = mod.demoBots;
+      mod.demoBots.subscribe(setBots);
+    }
+    return botsRef.current;
+  }, []);
 
   const onMessage = useCallback(
     (m: Record<string, unknown>) => {
@@ -50,6 +64,20 @@ export function TeacherClassPage({ classId }: { classId: string }) {
 
   const cmd = (msg: Record<string, unknown>, ok?: string) => run(() => sock.current!.command(msg), ok);
 
+  /** 봇을 방에서 내보낸 뒤 클래스 명단에서도 지운다 (교사의 '내보내기' 와 같은 명령) */
+  const removeBots = useCallback(async () => {
+    const mgr = await loadBots();
+    const removed = await mgr.stop();
+    const leftovers = mgr.leftovers(classId);
+    const ids = new Set([...removed.map((r) => r.studentId), ...leftovers.map((r) => r.studentId)]);
+    for (const studentId of ids) {
+      await sock.current?.command({ type: 'class.kick', studentId }).catch(() => {
+        /* 이미 나갔을 수 있다 */
+      });
+    }
+    mgr.clearLeftovers();
+  }, [classId, loadBots]);
+
   if (fatal) {
     return (
       <Page>
@@ -75,7 +103,6 @@ export function TeacherClassPage({ classId }: { classId: string }) {
 
   return (
     <Page wide>
-      <PageBackdrop />
       <ConnectionBanner state={state} detail={detail} />
       <TopBar
         title={snap.name}
@@ -153,6 +180,9 @@ export function TeacherClassPage({ classId }: { classId: string }) {
                   onTakeOver={() => setConfirm({ title: '진행권 인수', message: `"${r.title}" 방의 진행권을 선생님이 가져올까요? 기존 방장은 진행 권한을 잃어요.`, label: '인수하기', run: () => sock.current!.command({ type: 'room.takeOver', roomId: r.roomId }) })}
                   onAssign={(studentId) => cmd({ type: 'room.assignHost', roomId: r.roomId, studentId }, '방장을 바꿨어요')}
                   onClose={() => setConfirm({ title: '방 강제 종료', message: `"${r.title}" 방을 닫을까요? 진행 중인 게임도 끝나고 학생들은 로비로 돌아가요.`, label: '방 닫기', danger: true, run: () => sock.current!.command({ type: 'room.forceClose', roomId: r.roomId, confirm: true }) })}
+                  bots={bots}
+                  onDemoBots={() => setBotRoom(r)}
+                  onStopBots={() => run(removeBots, '데모봇을 내보냈어요')}
                 />
               ))}
             </ul>
@@ -199,6 +229,22 @@ export function TeacherClassPage({ classId }: { classId: string }) {
         />
       )}
 
+      {botRoom && (
+        <DemoBotModal
+          room={botRoom}
+          onClose={() => setBotRoom(null)}
+          onStart={async (count) => {
+            const ok = await run(async () => {
+              const mgr = await loadBots();
+              await mgr.start(snap.code, botRoom.roomId, count);
+              const st = mgr.getState();
+              if (st.error) throw new Error(st.error);
+            }, '데모봇이 들어갔어요');
+            if (ok) setBotRoom(null);
+          }}
+        />
+      )}
+
       {confirm && (
         <ConfirmModal
           title={confirm.title}
@@ -240,9 +286,12 @@ function MemberRow({ m, busy, onGrant, onKick }: { m: ClassMemberView; busy: boo
   );
 }
 
-function RoomRow({ r, members, busy, onVisit, onTakeOver, onAssign, onClose }: { r: RoomSummary; members: ClassMemberView[]; busy: boolean; onVisit: () => void; onTakeOver: () => void; onAssign: (studentId: string) => void; onClose: () => void }) {
+function RoomRow({ r, members, busy, onVisit, onTakeOver, onAssign, onClose, bots, onDemoBots, onStopBots }: { r: RoomSummary; members: ClassMemberView[]; busy: boolean; onVisit: () => void; onTakeOver: () => void; onAssign: (studentId: string) => void; onClose: () => void; bots: DemoBotState | null; onDemoBots: () => void; onStopBots: () => void }) {
   const [assignOpen, setAssignOpen] = useState(false);
   const candidates = members.filter((m) => m.hostGrant && m.currentRoomId === r.roomId && m.studentId !== r.hostUserId);
+  const botsHere = !!bots?.running && bots.roomId === r.roomId;
+  const seatsLeft = Math.max(0, r.capacity - r.playerCount);
+  const canAddBots = r.status === 'LOBBY' && seatsLeft > 0 && !bots?.running;
   return (
     <li className="paper p-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -265,6 +314,20 @@ function RoomRow({ r, members, busy, onVisit, onTakeOver, onAssign, onClose }: {
         <button className="btn btn-sm" disabled={busy || candidates.length === 0} onClick={() => setAssignOpen((v) => !v)} title={candidates.length === 0 ? '이 방에 방장 자격을 가진 다른 학생이 없어요' : ''}>
           방장 교체
         </button>
+        {botsHere ? (
+          <button className="btn btn-sm" disabled={busy || bots?.busy} onClick={onStopBots}>
+            🤖 데모봇 {bots?.joined}명 내보내기
+          </button>
+        ) : (
+          <button
+            className="btn btn-sm"
+            disabled={busy || !canAddBots}
+            onClick={onDemoBots}
+            title={r.status !== 'LOBBY' ? '대기 중인 방에만 넣을 수 있어요' : seatsLeft === 0 ? '자리가 없어요' : bots?.running ? '다른 방에서 데모봇이 돌고 있어요' : '혼자 게임을 돌려 볼 수 있어요'}
+          >
+            🤖 데모봇 참가
+          </button>
+        )}
         <button className="btn btn-ghost btn-sm text-[#b3261e]" disabled={busy} onClick={onClose}>
           방 닫기
         </button>
@@ -286,6 +349,59 @@ function RoomRow({ r, members, busy, onVisit, onTakeOver, onAssign, onClose }: {
         </div>
       )}
     </li>
+  );
+}
+
+function DemoBotModal({ room, onClose, onStart }: { room: RoomSummary; onClose: () => void; onStart: (count: number) => Promise<void> }) {
+  const seatsLeft = Math.max(0, room.capacity - room.playerCount);
+  const max = Math.min(seatsLeft, 12);
+  const [count, setCount] = useState(Math.min(4, max));
+  const [busy, setBusy] = useState(false);
+  return (
+    <Modal
+      title="데모봇 참가"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn btn-ghost" onClick={onClose} disabled={busy}>
+            취소
+          </button>
+          <button
+            className="btn btn-primary"
+            disabled={busy || max === 0}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await onStart(count);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? '들어가는 중…' : `${count}명 넣기`}
+          </button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3">
+        <p>
+          혼자서 게임을 끝까지 돌려 볼 수 있어요. 데모봇은 실제 학생과 똑같은 방법으로 들어와 준비하고, 제시어를 고르고, 그림과 추측을 제출해요.
+        </p>
+        <label className="flex flex-col gap-1">
+          <span className="font-bold">데모봇 수 (남은 자리 {seatsLeft}명)</span>
+          <select className="input" value={count} onChange={(e) => setCount(Number(e.target.value))} disabled={max === 0}>
+            {Array.from({ length: max }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n}명
+              </option>
+            ))}
+          </select>
+        </label>
+        <Notice>
+          한 명은 일부러 느리게 움직여요. "언제 다음으로 넘길까"를 연습할 수 있어요. 끝나면 <b>데모봇 내보내기</b> 를 눌러 방과 명단에서 모두 지워 주세요. 이 창을 닫거나 새로고침하면 데모봇이 멈추니, 그때는 명단에서 직접 내보내면 돼요.
+        </Notice>
+      </div>
+    </Modal>
   );
 }
 

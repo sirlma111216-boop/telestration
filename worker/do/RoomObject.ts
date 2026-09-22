@@ -1022,6 +1022,7 @@ export class RoomObject extends DurableObject<Env> {
       status: m.status,
       revision: m.summaryRevision,
       updatedAt: m.lastActivityAt,
+      connectedUserIds: [...this.connectedUserIds()],
     };
   }
 

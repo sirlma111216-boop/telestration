@@ -252,6 +252,13 @@ export interface RoomSummary {
   status: RoomStatus;
   revision: number;
   updatedAt: number;
+  /**
+   * 이 방에 지금 붙어 있는 사람들. 교사 명단의 접속 상태를 맞추는 데 쓴다.
+   * 방 안의 학생은 클래스 소켓을 닫고 방 소켓만 쓰기 때문에, 이것이 없으면
+   * 방에 들어간 학생이 모두 '오프라인' 으로 보인다.
+   * 같은 클래스의 다른 학생에게는 내려보내지 않는다 (ClassObject 가 지운다).
+   */
+  connectedUserIds?: string[];
 }
 
 export interface ClassSnapshot {
