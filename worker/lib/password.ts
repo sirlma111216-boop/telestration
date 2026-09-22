@@ -2,8 +2,13 @@
  * PBKDF2-SHA256 비밀번호 해시 (WebCrypto). 형식:
  *   pbkdf2-sha256$<iterations>$<saltBase64>$<hashBase64>
  * scripts/hash-password.mjs 도 같은 형식을 만든다.
+ *
+ * Cloudflare Workers 의 WebCrypto 는 PBKDF2 반복 횟수를 10만 회까지만 허용한다
+ * ("iteration counts above 100000 are not supported"). 로컬 workerd 는 이 제한을 적용하지
+ * 않으므로, 더 큰 값을 쓰면 로컬에서만 통과하고 배포 후 로그인이 실패한다.
  */
-const DEFAULT_ITERATIONS = 210_000;
+export const MAX_ITERATIONS = 100_000;
+const DEFAULT_ITERATIONS = MAX_ITERATIONS;
 
 function toBase64(bytes: Uint8Array): string {
   let bin = '';
@@ -24,6 +29,7 @@ async function derive(password: string, salt: Uint8Array, iterations: number): P
 }
 
 export async function hashPassword(password: string, iterations = DEFAULT_ITERATIONS): Promise<string> {
+  if (iterations > MAX_ITERATIONS) throw new Error(`반복 횟수는 ${MAX_ITERATIONS} 이하여야 합니다 (Cloudflare Workers 제한)`);
   const salt = new Uint8Array(16);
   crypto.getRandomValues(salt);
   const hash = await derive(password, salt, iterations);
@@ -34,7 +40,12 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const parts = stored.split('$');
   if (parts.length !== 4 || parts[0] !== 'pbkdf2-sha256') return false;
   const iterations = Number(parts[1]);
-  if (!Number.isInteger(iterations) || iterations < 10_000 || iterations > 5_000_000) return false;
+  if (!Number.isInteger(iterations) || iterations < 10_000) return false;
+  if (iterations > MAX_ITERATIONS) {
+    // 운영자에게 원인을 알린다. 비밀번호·해시는 남기지 않는다.
+    console.warn(`저장된 비밀번호 해시의 반복 횟수(${iterations})가 Workers 한도 ${MAX_ITERATIONS}를 넘습니다. npm run hash-password 로 다시 만들어 TEACHER_ACCOUNTS 를 갱신하세요.`);
+    return false;
+  }
   let salt: Uint8Array;
   let expected: Uint8Array;
   try {
@@ -43,7 +54,13 @@ export async function verifyPassword(password: string, stored: string): Promise<
   } catch {
     return false;
   }
-  const actual = await derive(password, salt, iterations);
+  let actual: Uint8Array;
+  try {
+    actual = await derive(password, salt, iterations);
+  } catch {
+    // 플랫폼이 거부한 파라미터 등 — 500 대신 인증 실패로 처리한다
+    return false;
+  }
   if (actual.length !== expected.length) return false;
   let diff = 0;
   for (let i = 0; i < actual.length; i++) diff |= actual[i]! ^ expected[i]!;

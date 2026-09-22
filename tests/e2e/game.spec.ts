@@ -213,8 +213,12 @@ test('시간 초과: 저장된 초안은 자동 제출되고 초안이 없으면
   const fromP1 = stage2.find((a) => a.previous?.authorUserId === p1!.student.studentId)!;
   expect(fromP1.previous).not.toBeNull();
   // 아무것도 없는 사람의 항목은 시간 초과: 2단계에서 아무도 제출하지 않고 30초 대기
-  await p0!.c.waitFor((c) => c.snapshot?.stage === 3 || c.snapshot?.status !== 'PLAYING', 45000, 'stage 3 after timeout');
+  // 한 명만 기다리고 전원의 스냅샷을 읽으면 아직 2단계인 사람이 섞인다 — 전원을 기다린다
+  for (const p of f.players) {
+    await p.c.waitFor((c) => (c.snapshot?.stage === 3 && !!c.snapshot.assignment) || c.snapshot?.status !== 'PLAYING', 45000, 'stage 3 after timeout');
+  }
   const stage3 = f.players.map((p) => p.c.snapshot!.assignment!);
+  expect(stage3.every((a) => a.previous?.kind === 'guess')).toBe(true);
   expect(stage3.every((a) => a.previous?.timedOut === true)).toBe(true);
   teardown(f);
 });

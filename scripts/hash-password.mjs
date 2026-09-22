@@ -12,7 +12,8 @@ if (!password || password.length < 8) {
   console.error('사용법: npm run hash-password -- "8자 이상의 비밀번호"');
   process.exit(1);
 }
-const iterations = 210000;
+// Cloudflare Workers 의 WebCrypto 는 10만 회를 넘는 PBKDF2 반복을 지원하지 않는다.
+const iterations = 100000;
 const salt = new Uint8Array(16);
 webcrypto.getRandomValues(salt);
 const key = await webcrypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);

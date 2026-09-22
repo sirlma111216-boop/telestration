@@ -2,7 +2,7 @@
 #
 # TEACHER_ACCOUNTS: 교사 계정 목록(JSON). passwordHash 는 `npm run hash-password -- <비밀번호>` 로 만든다.
 # 아래 예시의 비밀번호는 "teacher-demo-1234" 이다. 운영에서는 반드시 새로 만든다.
-TEACHER_ACCOUNTS=[{"id":"t-demo","username":"demo","name":"시범 교사","passwordHash":"pbkdf2-sha256$210000$ZGVtby1zYWx0LWRlbW8tc2FsdA==$REPLACE_WITH_REAL_HASH"}]
+TEACHER_ACCOUNTS=[{"id":"t-demo","username":"demo","name":"시범 교사","passwordHash":"pbkdf2-sha256$100000$ZGVtby1zYWx0LWRlbW8tc2FsdA==$REPLACE_WITH_REAL_HASH"}]
 
 # 허용 Origin (쉼표 구분). 로컬 개발 서버 주소를 적는다.
 ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173

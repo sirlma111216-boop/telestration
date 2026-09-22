@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { hashPassword, verifyPassword } from '../../worker/lib/password';
+import { execFileSync } from 'node:child_process';
+import { hashPassword, MAX_ITERATIONS, verifyPassword } from '../../worker/lib/password';
 import { RateLimiter } from '../../worker/lib/rate';
 import { pickPromptCandidates, PROMPTS } from '../../worker/lib/prompts';
 
@@ -15,6 +16,27 @@ describe('비밀번호 해시', () => {
   it('형식이 깨진 해시는 거부', async () => {
     expect(await verifyPassword('x', 'plain')).toBe(false);
     expect(await verifyPassword('x', 'pbkdf2-sha256$10$a$b')).toBe(false);
+  });
+
+  // Cloudflare Workers 의 WebCrypto 는 10만 회를 넘는 PBKDF2 를 거부한다.
+  // 로컬 workerd 는 이 제한을 적용하지 않아 배포 후에야 드러났다 — 상수로 고정한다.
+  it('반복 횟수는 Workers 한도(100000) 이하', async () => {
+    expect(MAX_ITERATIONS).toBeLessThanOrEqual(100_000);
+    const h = await hashPassword('workers-limit-test');
+    expect(Number(h.split('$')[1])).toBeLessThanOrEqual(100_000);
+    await expect(hashPassword('x', 210_000)).rejects.toThrow();
+  });
+
+  it('한도를 넘는 해시는 예외 대신 인증 실패로 처리', async () => {
+    const over = 'pbkdf2-sha256$210000$' + Buffer.alloc(16).toString('base64') + '$' + Buffer.alloc(32).toString('base64');
+    expect(await verifyPassword('any', over)).toBe(false);
+  });
+
+  it('hash-password 스크립트 출력도 한도를 지키고 서버가 검증한다', async () => {
+    const out = execFileSync(process.execPath, ['scripts/hash-password.mjs', 'script-round-trip-pw'], { encoding: 'utf8' }).trim();
+    expect(Number(out.split('$')[1])).toBeLessThanOrEqual(100_000);
+    expect(await verifyPassword('script-round-trip-pw', out)).toBe(true);
+    expect(await verifyPassword('wrong', out)).toBe(false);
   });
 });
 

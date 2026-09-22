@@ -13,7 +13,7 @@
   "vars": {
     "ENVIRONMENT": "production",
     // 쉼표로 구분한 허용 Origin 목록. 배포 후 실제 워커 주소로 바꾼다.
-    "ALLOWED_ORIGINS": "https://picture-relay.example.workers.dev"
+    "ALLOWED_ORIGINS": "https://picture-relay.sirlma.workers.dev"
   },
   "durable_objects": {
     "bindings": [
@@ -30,7 +30,7 @@
       "name": "picture-relay-staging",
       "vars": {
         "ENVIRONMENT": "staging",
-        "ALLOWED_ORIGINS": "https://picture-relay-staging.example.workers.dev"
+        "ALLOWED_ORIGINS": "https://picture-relay-staging.sirlma.workers.dev"
       },
       "durable_objects": {
         "bindings": [

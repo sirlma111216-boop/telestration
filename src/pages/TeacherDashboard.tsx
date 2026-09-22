@@ -46,7 +46,7 @@ export function TeacherDashboardPage({ teacher, onLogout }: { teacher: { teacher
   return (
     <Page>
       <TopBar
-        title={`${teacher.name} 선생님`}
+        title={teacher.name.endsWith('선생님') ? teacher.name : `${teacher.name} 선생님`}
         subtitle={<Logo small />}
         right={
           <button className="btn btn-ghost btn-sm" onClick={logout}>

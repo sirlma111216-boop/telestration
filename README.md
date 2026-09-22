@@ -1,5 +1,7 @@
 # 그림 이어말하기
 
+**배포 주소: https://picture-relay.sirlma.workers.dev**
+
 교실에서 쓰는 온라인 그림 전달 파티 게임입니다. 학생들은 **제시어 → 그림 → 추측 → 그림 → 추측** 순서로 내용을 전달하고, 마지막에 방장이 보여 주는 화면을 **다 함께** 보며 어디서 이야기가 바뀌었는지 웃습니다.
 
 - 교사가 클래스를 만들고 학생을 확인하며, 학생 중 **방장 자격**을 줄 사람을 직접 고릅니다.
@@ -67,20 +69,22 @@ http://localhost:5173 이 열립니다. Vite 개발 서버 안에서 Cloudflare 
 
 공개 회원 가입은 없습니다. 운영자가 서버 비밀 변수 `TEACHER_ACCOUNTS` 에 교사 계정을 넣습니다.
 
-1. 해시 생성 (PBKDF2-SHA256, 210,000회, 16바이트 무작위 salt):
+1. 해시 생성 (PBKDF2-SHA256, 100,000회, 16바이트 무작위 salt):
 
    ```bash
    npm run hash-password -- "선생님이-쓸-비밀번호"
    ```
 
-   출력 예: `pbkdf2-sha256$210000$…salt…$…hash…`
+   출력 예: `pbkdf2-sha256$100000$…salt…$…hash…`
+
+   > 반복 횟수 100,000 은 Cloudflare Workers 의 WebCrypto 상한입니다. 더 큰 값으로 만든 해시는 로컬에서는 통과하지만 배포 후 로그인이 실패합니다.
 
 2. JSON 배열로 만듭니다. `id` 는 클래스 소유권 식별에 쓰이므로 나중에 바꾸지 마세요.
 
    ```json
    [
-     {"id":"t-kim","username":"kim","name":"김선생","passwordHash":"pbkdf2-sha256$210000$…"},
-     {"id":"t-lee","username":"lee","name":"이선생","passwordHash":"pbkdf2-sha256$210000$…"}
+     {"id":"t-kim","username":"kim","name":"김선생","passwordHash":"pbkdf2-sha256$100000$…"},
+     {"id":"t-lee","username":"lee","name":"이선생","passwordHash":"pbkdf2-sha256$100000$…"}
    ]
    ```
 
@@ -175,7 +179,17 @@ Workers Builds 를 쓰면 GitHub push 로 자동 배포됩니다.
 
 **미리보기(Preview) 제약**: Cloudflare 문서에 따르면 Durable Object 를 구현한 Worker 에는 버전 미리보기 URL 이 생성되지 않습니다. 따라서 PR 미리보기 대신 12절처럼 별도 staging Worker(환경)를 두고 검증합니다. Workers Builds 의 비프로덕션 브랜치 빌드도 production 설정을 쓰지 않으므로, staging 브랜치의 Deploy command 를 `npx wrangler deploy --env staging` 으로 따로 지정하세요.
 
-이 저장소는 Cloudflare 자격 증명 없이 작성·검증되었습니다. **실제 배포는 수행하지 않았으며**, 위 절차대로 사용자가 직접 배포해야 합니다.
+**현재 배포 상태(2026-09-22):** production 에 배포 완료.
+
+| 항목 | 값 |
+|---|---|
+| 주소 | https://picture-relay.sirlma.workers.dev |
+| Worker 이름 | `picture-relay` |
+| Cloudflare 계정 | sirlma@naver.com |
+| 배포 방식 | `npm run build && npx wrangler deploy` (수동) |
+| 설정된 비밀 | `TEACHER_ACCOUNTS` |
+
+GitHub 저장소는 https://github.com/sirlma111216-boop/telestration 이며, Workers Builds 자동 배포는 아직 연결하지 않았습니다. 연결하려면 위 1~4 단계를 따르세요.
 
 ## 11. 인증 비밀과 바인딩 설정
 
@@ -274,14 +288,18 @@ Durable Object 역할:
 | E2E 브라우저 UI (`ui.spec.ts`) — 교사·학생 4명 독립 컨텍스트(390×844 모바일 에뮬레이션) 완주, 캔버스 마우스 그리기, IME 조합 중 Enter 미제출, 학생 화면에 이전/다음·참가자 목록 없음, 확대 중 갱신, 반응, 교사 참관 표시 | 1/1 통과 |
 | E2E 기기 (`devices.spec.ts`) — 390×844 / 768×1024 / 1440×900 가로 넘침 없음, 지우개 실제 삭제, 실행 취소/다시 실행, 크기 변경 복원, 터치 포인터·pointercancel | Chromium 5/5, WebKit 5/5 통과 |
 
+| 배포본 검증 (`https://picture-relay.sirlma.workers.dev`) — 교사 로그인, 클래스 생성, 학생 4명 참여·실시간 반영, 방장 자격 부여, 방 생성·자유 입장, 4명 완주, 공동 공개 전원 동기화, 학생 독립 탐색 거부, 방 닫기·클래스 종료 | 전부 통과 |
+
 최종 실행(2026-09-22): `npx playwright test` 41/41 통과 (3.9분), `npm test` 29/29 통과, `npm run typecheck` 오류 없음, `npm run build` 성공 (클라이언트 323KB / gzip 100KB, 워커 111KB / gzip 29KB).
 
 **미검증 항목 (직접 확인하지 않음):**
 
 - 실제 휴대폰·태블릿·스타일러스 기기 (Playwright 의 모바일 뷰포트·터치 에뮬레이션과 합성 PointerEvent 로만 확인).
-- 실제 Cloudflare 배포·Workers Builds·hibernation 복귀·알람 지연. 로컬 workerd 에뮬레이션에서만 검증했습니다.
+- Workers Builds 자동 배포 연결, Durable Object hibernation 복귀, 24시간 알람 지연은 확인하지 않았습니다. 배포본에서는 한 판 완주와 공동 공개까지만 검증했습니다.
 - 24시간 만료 삭제는 시간을 앞당길 수 없어 알람 경로(클래스 종료 → 삭제, 방 닫기 → 삭제)만 테스트했습니다.
 - 학교 네트워크 환경의 실제 지연·방화벽.
+
+**배포에서만 드러난 문제 (수정 완료):** Cloudflare Workers 의 WebCrypto 는 PBKDF2 반복 횟수를 10만 회까지만 허용합니다(`iteration counts above 100000 are not supported`). 처음에는 21만 회를 썼는데 로컬 workerd 는 이 제한을 적용하지 않아 로컬 테스트 전부가 통과했고, 배포 후 교사 로그인만 500 으로 실패했습니다. 상한을 10만으로 낮추고, 한도를 넘는 해시는 500 대신 인증 실패로 처리하면서 운영자용 경고 로그를 남기도록 고쳤습니다. 회귀를 막는 단위 테스트를 추가했습니다.
 
 **로컬 개발 환경에서 관찰한 주의점:** Vite 개발 서버를 거치는 로컬 WebSocket 은 클라이언트가 메시지를 한 번도 보내지 않은 소켓에 서버 쪽 종료 프레임이 전달되지 않았습니다. 클라이언트는 연결 직후 `ping` 을 보내므로 실제 앱에는 영향이 없지만, 직접 프로토콜 클라이언트를 만들 때는 참고하세요.
 
