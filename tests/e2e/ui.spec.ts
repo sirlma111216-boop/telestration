@@ -102,7 +102,7 @@ test('교사·학생 4명 브라우저 완주와 공동 공개 동기화', async
   for (const s of students) await expectNoSquish(s.page, '대기실');
   // 참가자 카드가 닉네임을 담을 만큼 넓은지 (좁은 본문 폭에 사이드바를 욱여넣으면 100px 남짓으로 찌그러진다)
   for (const s of students) {
-    const cardWidth = await s.page.locator('ul.grid > li').first().evaluate((el) => el.getBoundingClientRect().width);
+    const cardWidth = await s.page.locator('ul.grid > li').first().evaluate((el) => (el as HTMLElement).offsetWidth);
     expect(cardWidth, '참가자 카드 너비').toBeGreaterThan(160);
   }
 
@@ -120,7 +120,7 @@ test('교사·학생 4명 브라우저 완주와 공동 공개 동기화', async
     await expect(s.page.getByText('이 내용을 그림으로 표현하세요')).toBeVisible({ timeout: 15000 });
     await expectNoSquish(s.page, '그리기 화면');
     // 넓은 화면에서 캔버스가 사이드바에 밀려 찌그러지지 않는지
-    const canvasWidth = await s.page.locator('.canvas-wrap').evaluate((el) => el.getBoundingClientRect().width);
+    const canvasWidth = await s.page.locator('.canvas-wrap').evaluate((el) => (el as HTMLElement).offsetWidth);
     expect(canvasWidth).toBeGreaterThan(280);
     await drawOnCanvas(s.page);
     await expect(s.page.getByText(/획 [1-9]/)).toBeVisible();
@@ -175,7 +175,9 @@ test('교사·학생 4명 브라우저 완주와 공동 공개 동기화', async
   await expect(host.getByText('1/5 · 제시어')).toBeVisible();
   await expect(viewer.getByText('1/5 · 제시어')).toBeVisible();
   // 제시어 칸 높이를 재 둔다 (그림 칸과 같아야 아래 버튼이 오르내리지 않는다)
-  const entryBoxHeight = (p: Page) => p.locator('[data-entry-box]').first().evaluate((el) => Math.round(el.getBoundingClientRect().height));
+  // offsetHeight 로 잰다. 항목이 바뀔 때 등장 애니메이션(scale)이 돌아가는데
+  // getBoundingClientRect 는 그 변형이 반영된 크기를 돌려주어 값이 흔들린다.
+  const entryBoxHeight = (p: Page) => p.locator('[data-entry-box]').first().evaluate((el) => (el as HTMLElement).offsetHeight);
   const promptHeight = await entryBoxHeight(viewer);
   expect(promptHeight).toBeGreaterThan(100);
   // 학생이 확대 중에도 방장이 넘기면 갱신

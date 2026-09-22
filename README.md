@@ -1,6 +1,6 @@
 # 그림 이어말하기
 
-**배포 주소: https://picture-relay.sirlma.workers.dev**
+**서비스 주소: https://timage.labbitory.com**
 
 교실에서 쓰는 온라인 그림 전달 파티 게임입니다. 학생들은 **제시어 → 그림 → 추측 → 그림 → 추측** 순서로 내용을 전달하고, 마지막에 방장이 보여 주는 화면을 **다 함께** 보며 어디서 이야기가 바뀌었는지 웃습니다.
 
@@ -173,7 +173,7 @@ Workers Builds 를 쓰면 GitHub push 로 자동 배포됩니다.
    - Root directory: `/`
    - Node 버전: 22 이상 (`NODE_VERSION` 환경 변수 또는 `.nvmrc`)
 3. 첫 배포 전에 11절의 비밀(`TEACHER_ACCOUNTS`)과 `ALLOWED_ORIGINS` 값을 설정합니다.
-4. 배포 후 `wrangler.jsonc` 의 `ALLOWED_ORIGINS` 를 실제 주소(예: `https://picture-relay.<계정>.workers.dev` 또는 커스텀 도메인)로 바꾸고 다시 push 합니다.
+4. 배포 후 `wrangler.jsonc` 의 `ALLOWED_ORIGINS` 를 실제 주소로 바꾸고 다시 push 합니다. 커스텀 도메인을 쓴다면 `routes` 에 `{ "pattern": "<도메인>", "custom_domain": true }` 를 함께 적습니다.
 
 수동 배포: `npx wrangler login` 후 `npm run deploy`.
 
@@ -183,11 +183,15 @@ Workers Builds 를 쓰면 GitHub push 로 자동 배포됩니다.
 
 | 항목 | 값 |
 |---|---|
-| 주소 | https://picture-relay.sirlma.workers.dev |
+| 주소 | https://timage.labbitory.com (커스텀 도메인) |
 | Worker 이름 | `picture-relay` |
 | Cloudflare 계정 | sirlma@naver.com |
 | 배포 방식 | `npm run build && npx wrangler deploy` (수동) |
 | 설정된 비밀 | `TEACHER_ACCOUNTS` |
+
+주소는 하나뿐입니다. `wrangler.jsonc` 의 `routes` 가 커스텀 도메인을 잡고, `workers_dev: false` 로 기본 `picture-relay.<계정>.workers.dev` 주소를 껐습니다. 학생에게 알려 줄 주소를 하나로 두기 위해서입니다. 기본 주소를 다시 쓰려면 `workers_dev` 를 `true` 로 바꾸고 `ALLOWED_ORIGINS` 에 그 주소를 더하면 됩니다.
+
+커스텀 도메인은 `labbitory.com` 존이 같은 Cloudflare 계정에 있어야 동작합니다. 도메인을 바꾸려면 `routes` 의 `pattern` 과 `ALLOWED_ORIGINS` 를 함께 고친 뒤 다시 배포하세요.
 
 GitHub 저장소는 https://github.com/sirlma111216-boop/telestration 이며, Workers Builds 자동 배포는 아직 연결하지 않았습니다. 연결하려면 위 1~4 단계를 따르세요.
 
@@ -288,7 +292,7 @@ Durable Object 역할:
 | E2E 브라우저 UI (`ui.spec.ts`) — 교사·학생 4명 독립 컨텍스트(390×844 모바일 에뮬레이션) 완주, 캔버스 마우스 그리기, IME 조합 중 Enter 미제출, 학생 화면에 이전/다음·참가자 목록 없음, 확대 중 갱신, 반응, 교사 참관 표시 | 1/1 통과 |
 | E2E 기기 (`devices.spec.ts`) — 390×844 / 768×1024 / 1440×900 가로 넘침 없음, 지우개 실제 삭제, 실행 취소/다시 실행, 크기 변경 복원, 터치 포인터·pointercancel | Chromium 5/5, WebKit 5/5 통과 |
 
-| 배포본 검증 (`https://picture-relay.sirlma.workers.dev`) — 교사 로그인, 클래스 생성, 학생 4명 참여·실시간 반영, 방장 자격 부여, 방 생성·자유 입장, 4명 완주, 공동 공개 전원 동기화, 학생 독립 탐색 거부, 방 닫기·클래스 종료 | 전부 통과 |
+| 배포본 검증 (`https://timage.labbitory.com`) — 교사 로그인, 클래스 생성, 학생 4명 참여·실시간 반영, 방장 자격 부여, 방 생성·자유 입장, 4명 완주, 공동 공개 전원 동기화, 학생 독립 탐색 거부, 방 닫기·클래스 종료 | 전부 통과 |
 
 최종 실행(2026-09-22): `npx playwright test` 41/41 통과 (3.9분), `npm test` 29/29 통과, `npm run typecheck` 오류 없음, `npm run build` 성공 (클라이언트 323KB / gzip 100KB, 워커 111KB / gzip 29KB).
 
@@ -296,6 +300,7 @@ Durable Object 역할:
 
 - 실제 휴대폰·태블릿·스타일러스 기기 (Playwright 의 모바일 뷰포트·터치 에뮬레이션과 합성 PointerEvent 로만 확인).
 - Workers Builds 자동 배포 연결, Durable Object hibernation 복귀, 24시간 알람 지연은 확인하지 않았습니다. 배포본에서는 한 판 완주와 공동 공개까지만 검증했습니다.
+- 커스텀 도메인의 인증서 갱신과 장기 안정성은 시간이 지나야 알 수 있습니다. 첫 접속과 WebSocket 은 정상 동작을 확인했습니다.
 - 24시간 만료 삭제는 시간을 앞당길 수 없어 알람 경로(클래스 종료 → 삭제, 방 닫기 → 삭제)만 테스트했습니다.
 - 학교 네트워크 환경의 실제 지연·방화벽.
 
@@ -314,5 +319,9 @@ Durable Object 역할:
 - 그림 저장 상한: 획 600개, 획당 400점, 전체 30,000점, 250KB. 색 12개·굵기 3단계 외의 값은 서버가 거부합니다.
 - 제출은 한 번 누르면 바로 반영되고 확인 창을 띄우지 않습니다. 되돌릴 수 없다는 안내는 버튼 옆에 미리 적어 두었습니다. 전체 지우기처럼 실수로 많은 것을 잃는 조작만 확인을 받습니다.
 - 결과 공개에서 제시어·추측도 그림과 같은 4:3 칸에 담습니다. 칸 높이가 항목마다 달라지면 아래의 이전/다음 버튼이 오르내려 누르기 어렵습니다.
-- 일러스트 3장(`public/images/`)은 모두 선택 사항입니다. 파일이 없거나 로딩에 실패하면 그 자리만 비고 레이아웃은 그대로입니다. 어느 화면에 들어가는지는 docs/IMAGES.md 에 적혀 있습니다.
+- 일러스트 3장(`public/images/`)은 모두 선택 사항입니다. 파일이 없거나 로딩에 실패하면 그 자리만 비고 레이아웃은 그대로입니다.
+  - 첫 화면(학생 참여·교사 로그인)은 컴퓨터·태블릿에서 왼쪽 입력창 + 오른쪽 친구들 그림으로 두고, 휴대폰에서는 그림을 뺍니다.
+  - 양옆 낙서 배경은 로그인한 뒤부터(교사 대시보드·클래스 화면·학생 로비·게임방 대기실) 나오고, 게임이 시작되면 작업에 집중하도록 뺍니다.
+  - 노트 마스코트는 클래스가 없을 때, 열린 방이 없을 때, 게임방에서 기다릴 때 나옵니다.
+  - 자세한 배치는 docs/IMAGES.md 에 적혀 있습니다.
 - 접근성: 버튼 이름·키보드 포커스·reduced-motion 을 지원하지만, 캔버스에 직접 그리는 입력 자체는 스크린 리더로 대체할 수 없습니다. 추측·제시어 단계는 키보드만으로 가능합니다.

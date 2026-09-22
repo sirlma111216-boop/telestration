@@ -247,6 +247,15 @@ export function Logo({ small }: { small?: boolean }) {
   );
 }
 
+/**
+ * 로그인 뒤부터 게임이 시작되기 전까지 화면 양옆에 깔리는 낙서 배경.
+ * 가운데가 비어 있어 본문과 겹치지 않는다. 좁은 화면에서는 양옆이 잘리므로 숨긴다.
+ * 게임(제시어 선택·그리기·추측·결과 공개) 중에는 쓰지 않는다 — 작업 화면에 방해가 된다.
+ */
+export function PageBackdrop() {
+  return <Illustration src="/images/hero-bg.webp" className="pointer-events-none fixed inset-0 -z-10 hidden h-full w-full object-contain md:block" />;
+}
+
 /** 선택적 장식 그림. 파일이 없거나 로딩에 실패하면 아무것도 그리지 않는다. */
 export function Illustration({ src, alt, className }: { src: string; alt?: string; className?: string }) {
   const [failed, setFailed] = useState(false);

@@ -4,7 +4,7 @@ import { noteServerTime } from '../lib/clock';
 import { navigate } from '../lib/router';
 import { clearStudentSession, getStudentSession, saveStudentSession } from '../lib/session';
 import { useSocket } from '../lib/useSocket';
-import { ConnectionBanner, Illustration, Logo, Notice, Page, Pill, RETENTION_NOTICE, TopBar, useAsyncAction, useToast } from '../components/ui';
+import { ConnectionBanner, Illustration, Logo, Notice, Page, PageBackdrop, Pill, RETENTION_NOTICE, TopBar, useAsyncAction, useToast } from '../components/ui';
 import { CreateRoomModal } from './TeacherClass';
 import { statusLabel, wsUrl } from './roomShared';
 
@@ -90,6 +90,7 @@ export function StudentLobbyPage({ classId }: { classId: string }) {
 
   return (
     <Page>
+      <PageBackdrop />
       <ConnectionBanner state={state} detail={detail} />
       <TopBar
         title={snap.name}

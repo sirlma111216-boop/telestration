@@ -4,7 +4,7 @@ import type { ClassMemberView, ClassSnapshot, HostMode, RoomSummary } from '@sha
 import { noteServerTime } from '../lib/clock';
 import { navigate } from '../lib/router';
 import { useSocket } from '../lib/useSocket';
-import { ConfirmModal, ConnectionBanner, Modal, Notice, Page, Pill, RETENTION_NOTICE, TopBar, useAsyncAction, useToast } from '../components/ui';
+import { ConfirmModal, ConnectionBanner, Modal, Notice, Page, PageBackdrop, Pill, RETENTION_NOTICE, TopBar, useAsyncAction, useToast } from '../components/ui';
 import { statusLabel } from './roomShared';
 
 function wsUrl(path: string): string {
@@ -75,6 +75,7 @@ export function TeacherClassPage({ classId }: { classId: string }) {
 
   return (
     <Page wide>
+      <PageBackdrop />
       <ConnectionBanner state={state} detail={detail} />
       <TopBar
         title={snap.name}

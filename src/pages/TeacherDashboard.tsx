@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../lib/api';
 import { navigate } from '../lib/router';
-import { Logo, Notice, Page, RETENTION_NOTICE, TopBar, useToast } from '../components/ui';
+import { Illustration, Logo, Notice, Page, PageBackdrop, RETENTION_NOTICE, TopBar, useToast } from '../components/ui';
 
 interface ClassRow {
   classId: string;
@@ -45,6 +45,7 @@ export function TeacherDashboardPage({ teacher, onLogout }: { teacher: { teacher
 
   return (
     <Page>
+      <PageBackdrop />
       <TopBar
         title={teacher.name.endsWith('선생님') ? teacher.name : `${teacher.name} 선생님`}
         subtitle={<Logo small />}
@@ -67,7 +68,10 @@ export function TeacherDashboardPage({ teacher, onLogout }: { teacher: { teacher
       {classes === null ? (
         <p className="text-ink-2">불러오는 중…</p>
       ) : classes.length === 0 ? (
-        <Notice>아직 클래스가 없어요. 위에서 첫 클래스를 만들어 보세요.</Notice>
+        <div className="flex flex-col items-center gap-3">
+          <Illustration src="/images/mascot.webp" className="w-32 max-w-full" />
+          <Notice>아직 클래스가 없어요. 위에서 첫 클래스를 만들어 보세요.</Notice>
+        </div>
       ) : (
         <ul className="flex flex-col gap-2">
           {classes.map((c) => (

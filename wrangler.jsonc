@@ -10,10 +10,16 @@
     "binding": "ASSETS",
     "run_worker_first": ["/api/*", "/ws/*"]
   },
+  // 최종 서비스 주소는 커스텀 도메인 하나뿐이다. labbitory.com 존이 같은 계정에 있어야 한다.
+  "routes": [{ "pattern": "timage.labbitory.com", "custom_domain": true }],
+  // 기본 picture-relay.<계정>.workers.dev 주소는 쓰지 않는다. 학생에게 알려 줄 주소를 하나로 둔다.
+  // (routes 만 두고 이 값을 빼면 wrangler 가 경고와 함께 같은 동작을 하는데, 뜻을 분명히 적어 둔다.)
+  "workers_dev": false,
+  "preview_urls": false,
   "vars": {
     "ENVIRONMENT": "production",
-    // 쉼표로 구분한 허용 Origin 목록. 배포 후 실제 워커 주소로 바꾼다.
-    "ALLOWED_ORIGINS": "https://picture-relay.sirlma.workers.dev"
+    // 쉼표로 구분한 허용 Origin 목록. 워커는 요청이 온 주소 자신도 항상 허용한다.
+    "ALLOWED_ORIGINS": "https://timage.labbitory.com"
   },
   "durable_objects": {
     "bindings": [
@@ -28,6 +34,8 @@
   "env": {
     "staging": {
       "name": "picture-relay-staging",
+      // staging 은 커스텀 도메인이 없으므로 workers.dev 주소를 쓴다
+      "workers_dev": true,
       "vars": {
         "ENVIRONMENT": "staging",
         "ALLOWED_ORIGINS": "https://picture-relay-staging.sirlma.workers.dev"

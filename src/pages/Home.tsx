@@ -52,59 +52,66 @@ export function HomePage({ presetCode }: { presetCode?: string }) {
   };
 
   return (
-    <Page>
-      {/* 가운데가 빈 테두리 낙서. object-cover 로 채우면 양옆 낙서가 잘려 나가므로 contain 으로 전체를 보여 준다.
-          남는 위아래 여백은 페이지 배경색과 같아 티가 나지 않는다. 좁은 화면에서는 숨긴다. */}
-      <Illustration src="/images/hero-bg.webp" className="pointer-events-none fixed inset-0 -z-10 hidden h-full w-full object-contain md:block" />
-      <div className="flex flex-col items-center gap-2 py-6 text-center">
-        <Logo />
-        <p className="max-w-sm text-ink-2">제시어를 그림으로, 그림을 말로. 친구들에게 전달하다 보면 이야기가 어디로 갈까요?</p>
-      </div>
-      {lastSession && (
-        <div className="paper mb-4 flex items-center justify-between gap-3 p-4">
-          <div className="min-w-0">
-            <div className="text-xs text-ink-2">최근 참여한 클래스</div>
-            <div className="truncate font-bold">
-              {lastSession.className || '클래스'} · {lastSession.displayName}
-            </div>
+    <Page wide>
+      {/*
+       * 컴퓨터·태블릿: 왼쪽 입력창, 오른쪽 그림.
+       * 휴대폰: 그림을 빼고 입력창만 보여 준다 (좁은 화면에서는 그림이 자리만 차지한다).
+       * 양옆 낙서 배경은 로그인 뒤부터 나온다.
+       */}
+      <div className="mx-auto grid max-w-5xl items-center gap-8 py-4 md:grid-cols-[minmax(0,24rem)_1fr]">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col items-center gap-2 text-center md:items-start md:text-left">
+            <Logo />
+            <p className="text-ink-2">제시어를 그림으로, 그림을 말로. 친구들에게 전달하다 보면 이야기가 어디로 갈까요?</p>
           </div>
-          <button className="btn btn-mint btn-sm" onClick={() => navigate(`/class/${lastSession.classId}`)}>
-            이어서 참여
-          </button>
+          {lastSession && (
+            <div className="paper flex items-center justify-between gap-3 p-4">
+              <div className="min-w-0">
+                <div className="text-xs text-ink-2">최근 참여한 클래스</div>
+                <div className="truncate font-bold">
+                  {lastSession.className || '클래스'} · {lastSession.displayName}
+                </div>
+              </div>
+              <button className="btn btn-mint btn-sm shrink-0" onClick={() => navigate(`/class/${lastSession.classId}`)}>
+                이어서 참여
+              </button>
+            </div>
+          )}
+          <form className="paper flex flex-col gap-4 p-5" onSubmit={onSubmit}>
+            <h2 className="text-lg font-extrabold">클래스 참여하기</h2>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-bold">입장 코드</span>
+              <input
+                className="input text-center text-2xl font-extrabold uppercase tracking-[0.3em]"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 6))}
+                placeholder="ABC123"
+                autoComplete="off"
+                inputMode="text"
+                maxLength={6}
+                aria-describedby="code-help"
+              />
+              <span id="code-help" className="min-h-5 text-sm text-ink-2">
+                {className ? `클래스: ${className}` : '선생님이 알려 준 6자리 코드를 입력하세요'}
+              </span>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-bold">닉네임 (2~12자)</span>
+              <input className="input" value={nickname} onChange={(e) => setNickname(e.target.value.slice(0, 12))} placeholder="예: 바나나" maxLength={12} autoComplete="off" />
+            </label>
+            <button className="btn btn-primary text-lg" type="submit" disabled={busy || canonicalCode(code).length !== 6 || nickname.trim().length < 2}>
+              {busy ? '참여하는 중…' : '참여하기'}
+            </button>
+            <Notice>{RETENTION_NOTICE} 이메일이나 개인정보는 받지 않아요.</Notice>
+          </form>
+          <div className="text-center md:text-left">
+            <button className="btn btn-ghost text-sm" onClick={() => navigate('/teacher')}>
+              선생님이신가요? 교사 로그인
+            </button>
+          </div>
         </div>
-      )}
-      <form className="paper flex flex-col gap-4 p-5" onSubmit={onSubmit}>
-        <h2 className="text-lg font-extrabold">클래스 참여하기</h2>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-bold">입장 코드</span>
-          <input
-            className="input text-center text-2xl font-extrabold uppercase tracking-[0.3em]"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 6))}
-            placeholder="ABC123"
-            autoComplete="off"
-            inputMode="text"
-            maxLength={6}
-            aria-describedby="code-help"
-          />
-          <span id="code-help" className="min-h-5 text-sm text-ink-2">
-            {className ? `클래스: ${className}` : '선생님이 알려 준 6자리 코드를 입력하세요'}
-          </span>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-bold">닉네임 (2~12자)</span>
-          <input className="input" value={nickname} onChange={(e) => setNickname(e.target.value.slice(0, 12))} placeholder="예: 바나나" maxLength={12} autoComplete="off" />
-        </label>
-        <button className="btn btn-primary text-lg" type="submit" disabled={busy || canonicalCode(code).length !== 6 || nickname.trim().length < 2}>
-          {busy ? '참여하는 중…' : '참여하기'}
-        </button>
-        <Notice>{RETENTION_NOTICE} 이메일이나 개인정보는 받지 않아요.</Notice>
-      </form>
-      <Illustration src="/images/friends.webp" alt="친구들이 태블릿과 휴대폰으로 그림을 그리며 웃고 있는 그림" className="mx-auto mt-6 w-full max-w-md rounded-2xl" />
-      <div className="mt-6 text-center">
-        <button className="btn btn-ghost text-sm" onClick={() => navigate('/teacher')}>
-          선생님이신가요? 교사 로그인
-        </button>
+
+        <Illustration src="/images/friends.webp" alt="친구들이 태블릿과 휴대폰으로 그림을 그리며 웃고 있는 그림" className="hidden w-full rounded-2xl md:block" />
       </div>
     </Page>
   );
