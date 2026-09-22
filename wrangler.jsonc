@@ -1,0 +1,44 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "picture-relay",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-09-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/ws/*"]
+  },
+  "vars": {
+    "ENVIRONMENT": "production",
+    // 쉼표로 구분한 허용 Origin 목록. 배포 후 실제 워커 주소로 바꾼다.
+    "ALLOWED_ORIGINS": "https://picture-relay.example.workers.dev"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "DIRECTORY", "class_name": "DirectoryObject" },
+      { "name": "CLASSES", "class_name": "ClassObject" },
+      { "name": "ROOMS", "class_name": "RoomObject" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["DirectoryObject", "ClassObject", "RoomObject"] }
+  ],
+  "env": {
+    "staging": {
+      "name": "picture-relay-staging",
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "ALLOWED_ORIGINS": "https://picture-relay-staging.example.workers.dev"
+      },
+      "durable_objects": {
+        "bindings": [
+          { "name": "DIRECTORY", "class_name": "DirectoryObject" },
+          { "name": "CLASSES", "class_name": "ClassObject" },
+          { "name": "ROOMS", "class_name": "RoomObject" }
+        ]
+      }
+    }
+  }
+}

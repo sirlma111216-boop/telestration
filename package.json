@@ -1,0 +1,44 @@
+{
+  "name": "picture-relay",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "그림 이어말하기 - 교실용 실시간 그림 전달 게임 (Cloudflare Workers + Durable Objects)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:staging": "npm run build && wrangler deploy --env staging",
+    "hash-password": "node scripts/hash-password.mjs",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.57.2",
+    "@cloudflare/workers-types": "^5.20260922.1",
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.2",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^6.1.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.0",
+    "vite": "^8.3.0",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.136.2",
+    "ws": "^8.21.3"
+  }
+}

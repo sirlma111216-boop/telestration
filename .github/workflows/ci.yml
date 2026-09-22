@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      # E2E 는 로컬 workerd 와 브라우저가 필요해 시간이 오래 걸린다. 필요하면 아래 주석을 해제한다.
+      # - run: npx playwright install --with-deps chromium
+      # - run: npm run test:e2e -- --project=chromium
+      #   env:
+      #     TEACHER_ACCOUNTS: ${{ secrets.TEST_TEACHER_ACCOUNTS }}
