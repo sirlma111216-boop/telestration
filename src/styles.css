@@ -23,20 +23,28 @@
 
 html,
 body {
-  background: var(--color-cream);
   color: var(--color-ink);
   font-family: var(--font-sans);
   min-height: 100dvh;
   -webkit-text-size-adjust: 100%;
 }
 
-body {
+/*
+ * 배경은 html 에만 둔다. body 에도 불투명 배경을 주면 body 상자의 배경이
+ * z-index 가 음수인 장식 그림보다 나중에 그려져 그림을 덮어 버린다.
+ */
+html {
+  background-color: var(--color-cream);
   background-image:
     radial-gradient(circle at 12% 18%, rgba(183, 164, 242, 0.14) 0 6px, transparent 7px),
     radial-gradient(circle at 88% 12%, rgba(244, 115, 95, 0.14) 0 5px, transparent 6px),
     radial-gradient(circle at 80% 85%, rgba(111, 205, 183, 0.16) 0 7px, transparent 8px),
     radial-gradient(circle at 18% 80%, rgba(247, 209, 84, 0.18) 0 5px, transparent 6px);
   background-attachment: fixed;
+}
+
+body {
+  background: transparent;
 }
 
 #root {
@@ -144,6 +152,9 @@ body {
   font-weight: 700;
   border: 1.5px solid currentColor;
   white-space: nowrap;
+  /* 좁은 칸에서 칩이 내용보다 작게 눌리면 글자가 서로 겹친다 */
+  flex-shrink: 0;
+  max-width: 100%;
 }
 
 .canvas-wrap {

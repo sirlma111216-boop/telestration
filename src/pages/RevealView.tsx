@@ -51,7 +51,7 @@ export function RevealView({ snap, sock, reactions, connected }: { snap: RoomSna
           </div>
           {r.entry ? (
             <div className="pop" key={`${r.bookId}-${r.entryIndex}`}>
-              <EntryCard entry={r.entry} />
+              <EntryCard entry={r.entry} frame />
             </div>
           ) : (
             <div className="paper flex aspect-[4/3] flex-col items-center justify-center bg-violet-2 p-6 text-center">
@@ -134,7 +134,7 @@ export function RevealView({ snap, sock, reactions, connected }: { snap: RoomSna
       {zoom && r.entry && (
         <Modal title={`${r.ownerName}의 그림책 · ${stageText}`} onClose={() => setZoom(false)}>
           <div key={`${r.bookId}-${r.entryIndex}`}>
-            <EntryCard entry={r.entry} />
+            <EntryCard entry={r.entry} frame />
           </div>
           <p className="mt-2 text-xs text-ink-2">방장이 넘기면 확대 화면도 함께 바뀌어요.</p>
         </Modal>

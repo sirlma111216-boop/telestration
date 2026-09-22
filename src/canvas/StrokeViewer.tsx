@@ -3,7 +3,7 @@ import type { Stroke } from '@shared/types';
 import { fitCanvas, renderAll } from './render';
 
 /** 읽기 전용 그림 표시. 스트로크 데이터로 크기 변화에 맞춰 다시 그린다. */
-export function StrokeViewer({ strokes, className, label }: { strokes: readonly Stroke[]; className?: string; label?: string }) {
+export function StrokeViewer({ strokes, className, label, boxAttr }: { strokes: readonly Stroke[]; className?: string; label?: string; boxAttr?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -23,7 +23,7 @@ export function StrokeViewer({ strokes, className, label }: { strokes: readonly 
   }, [strokes]);
 
   return (
-    <div ref={wrapRef} className={`viewer ${className ?? ''}`} role="img" aria-label={label ?? '그림'}>
+    <div ref={wrapRef} data-entry-box={boxAttr ? '' : undefined} className={`viewer ${className ?? ''}`} role="img" aria-label={label ?? '그림'}>
       <canvas ref={ref} />
     </div>
   );

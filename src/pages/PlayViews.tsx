@@ -93,7 +93,6 @@ export function DrawView({ a, deadlineAt, totalSeconds, sock, connected, sendLiv
   const [color, setColor] = useState<string>(LIMITS.colors[0]);
   const [widthIdx, setWidthIdx] = useState(1);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [save, setSave] = useState<SaveState>({ local: false, server: a.draft ? 'saved' : 'idle', savedAt: null });
   const [, bump] = useState(0);
   const { busy, run } = useAsyncAction();
@@ -206,7 +205,7 @@ export function DrawView({ a, deadlineAt, totalSeconds, sock, connected, sendLiv
           <SaveIndicator s={save} connected={connected} />
           <span className="text-xs text-ink-2">획 {strokeCount}/{LIMITS.strokeMax}</span>
         </div>
-        <p className="text-center text-xs text-ink-2">글자 대신 그림으로 표현해 주세요.</p>
+        <p className="text-center text-xs text-ink-2">글자 대신 그림으로 표현해 주세요. 제출하면 고칠 수 없어요.</p>
       </div>
 
       <div className="sticky bottom-0 z-20 -mx-4 border-t-2 border-ink/10 bg-cream px-4 pb-[max(0.5rem,var(--safe-bottom))] pt-2 lg:static lg:m-0 lg:border-0 lg:bg-transparent lg:p-0">
@@ -252,13 +251,12 @@ export function DrawView({ a, deadlineAt, totalSeconds, sock, connected, sendLiv
               전체 지우기
             </button>
           </div>
-          <button className="btn btn-primary text-lg" disabled={busy || left === 0} onClick={() => setConfirmSubmit(true)}>
+          <button className="btn btn-primary text-lg" disabled={busy || left === 0} onClick={submit}>
             제출하기
           </button>
         </div>
       </div>
       {confirmClear && <ConfirmModal title="전체 지우기" message="그림을 모두 지울까요?" confirmLabel="지우기" danger onClose={() => setConfirmClear(false)} onConfirm={() => canvasRef.current?.clear()} />}
-      {confirmSubmit && <ConfirmModal title="제출하기" message="제출하면 더 이상 고칠 수 없어요. 제출할까요?" confirmLabel="제출" onClose={() => setConfirmSubmit(false)} onConfirm={submit} />}
     </div>
   );
 }
@@ -270,7 +268,6 @@ export function GuessView({ a, deadlineAt, totalSeconds, sock, connected, sendLi
   const key = `${a.gameId}:${a.stageId}`;
   const [text, setText] = useState<string>(() => loadLocalDraft<{ text: string }>(key)?.text ?? (a.draft?.kind === 'text' ? a.draft.text : ''));
   const [composing, setComposing] = useState(false);
-  const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [save, setSave] = useState<SaveState>({ local: false, server: a.draft ? 'saved' : 'idle', savedAt: null });
   const { busy, run } = useAsyncAction();
   const liveTimer = useRef<number | null>(null);
@@ -328,7 +325,7 @@ export function GuessView({ a, deadlineAt, totalSeconds, sock, connected, sendLi
       return;
     }
     e.preventDefault();
-    if (text.trim().length > 0) setConfirmSubmit(true);
+    if (text.trim().length > 0) void submit();
   };
 
   if (a.submitted) return <SubmittedView left={left} total={totalSeconds} kind="guess" />;
@@ -341,7 +338,7 @@ export function GuessView({ a, deadlineAt, totalSeconds, sock, connected, sendLi
       </div>
       {a.previous ? <EntryCard entry={a.previous} /> : <Notice>앞 사람의 그림이 없어요 (시간 초과·퇴장). 자유롭게 상상해서 적어 보세요!</Notice>}
       <label className="flex flex-col gap-1">
-        <span className="font-bold">내 추측 (최대 80자)</span>
+        <span className="font-bold">내 추측 (최대 80자) · 제출하면 고칠 수 없어요</span>
         <input
           className="input text-lg"
           value={text}
@@ -359,10 +356,9 @@ export function GuessView({ a, deadlineAt, totalSeconds, sock, connected, sendLi
         />
       </label>
       <SaveIndicator s={save} connected={connected} />
-      <button className="btn btn-primary text-lg" disabled={busy || text.trim().length === 0 || left === 0} onClick={() => setConfirmSubmit(true)}>
+      <button className="btn btn-primary text-lg" disabled={busy || text.trim().length === 0 || left === 0} onClick={submit}>
         제출하기
       </button>
-      {confirmSubmit && <ConfirmModal title="제출하기" message={<span>"{text.trim()}" 으로 제출할까요? 제출 후엔 고칠 수 없어요.</span>} confirmLabel="제출" onClose={() => setConfirmSubmit(false)} onConfirm={submit} />}
     </div>
   );
 }

@@ -8,13 +8,23 @@ import { noteServerTime } from '../lib/clock';
 import { navigate } from '../lib/router';
 import { getStudentSession } from '../lib/session';
 import { useSocket } from '../lib/useSocket';
-import { BadgeMark, ConfirmModal, ConnectionBanner, Logo, Notice, Page, Pill, TopBar, useAsyncAction, useToast } from '../components/ui';
+import { BadgeMark, ConfirmModal, ConnectionBanner, Illustration, Logo, Notice, Page, Pill, TopBar, useAsyncAction, useToast } from '../components/ui';
 import { DrawView, GuessView, PromptSelectView } from './PlayViews';
 import { MonitorView } from './MonitorView';
 import { RevealView, type Reaction } from './RevealView';
 import { statusLabel, wsUrl } from './roomShared';
 
 const ROOM_HELLO = { type: 'room.ping' };
+
+/**
+ * 안쪽에서 lg 2단 배치(참가자+설정, 캔버스+도구, 공개+참가자 목록)를 쓰는 화면은
+ * 넓은 본문 폭이 필요하다. 좁은 폭에 사이드바가 들어가면 칸이 찌그러진다.
+ */
+function usesWideLayout(snap: RoomSnapshot): boolean {
+  if (snap.me.canMonitor) return true;
+  if (snap.status === 'LOBBY' || snap.status === 'REVEALING' || snap.status === 'FINISHED') return true;
+  return snap.status === 'PLAYING' && snap.assignment?.kind === 'drawing';
+}
 
 interface Props {
   roomId: string;
@@ -146,7 +156,7 @@ export function RoomPage({ roomId, mode, classId }: Props) {
   }
 
   return (
-    <Page wide={snap.me.canMonitor || snap.status === 'REVEALING' || snap.status === 'FINISHED'}>
+    <Page wide={usesWideLayout(snap)}>
       <ConnectionBanner state={state} detail={detail} />
       <RoomHeader snap={snap} mode={mode} classId={classId} sock={sock.current} />
       {snap.observers.teacher && <div className="mb-3 text-center text-xs font-bold text-ink-2">👀 선생님 참관 중</div>}
@@ -263,8 +273,8 @@ function RoomBody({ snap, sock, monitor, reactions, connected, mode }: { snap: R
 
 function WaitingView({ title, text }: { title: string; text: string }) {
   return (
-    <div className="paper bg-cream-2 p-6 text-center">
-      <div className="text-3xl">⏳</div>
+    <div className="paper flex flex-col items-center bg-cream-2 p-6 text-center">
+      <Illustration src="/images/mascot.webp" className="w-28 max-w-full" />
       <div className="mt-2 text-lg font-extrabold">{title}</div>
       <p className="mt-1 text-sm text-ink-2">{text}</p>
     </div>
@@ -341,18 +351,24 @@ function LobbyView({ snap, sock, mode }: { snap: RoomSnapshot; sock: import('../
         </div>
         <ul className="grid gap-2 sm:grid-cols-2">
           {snap.members.map((m) => (
-            <li key={m.userId} className={`paper flex items-center gap-2 px-3 py-2 ${!m.connected ? 'opacity-60' : ''}`}>
-              <BadgeMark badge={m.badge} />
-              <span className="min-w-0 flex-1 truncate font-bold">
-                {m.displayName}
-                {m.userId === me.userId && <span className="text-xs text-ink-2"> (나)</span>}
+            <li key={m.userId} className={`paper flex items-start gap-2 px-3 py-2 ${!m.connected ? 'opacity-60' : ''}`}>
+              <span className="mt-0.5">
+                <BadgeMark badge={m.badge} />
               </span>
-              {m.isHost && <Pill tone="violet">방장</Pill>}
-              {!m.isPlayer && <Pill tone="muted">참관</Pill>}
-              {m.isPlayer && (m.ready ? <Pill tone="mint">준비됨</Pill> : <Pill tone="muted">대기</Pill>)}
-              {!m.connected && <Pill tone="coral">끊김</Pill>}
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-bold">
+                  {m.displayName}
+                  {m.userId === me.userId && <span className="text-xs text-ink-2"> (나)</span>}
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  {m.isHost && <Pill tone="violet">방장</Pill>}
+                  {!m.isPlayer && <Pill tone="muted">참관</Pill>}
+                  {m.isPlayer && (m.ready ? <Pill tone="mint">준비됨</Pill> : <Pill tone="muted">대기</Pill>)}
+                  {!m.connected && <Pill tone="coral">끊김</Pill>}
+                </div>
+              </div>
               {me.canControl && m.userId !== me.userId && !m.isTeacher && (
-                <button className="btn btn-ghost btn-sm text-[#b3261e]" onClick={() => setKick({ userId: m.userId, name: m.displayName })} aria-label={`${m.displayName} 내보내기`}>
+                <button className="btn btn-ghost btn-sm shrink-0 text-[#b3261e]" onClick={() => setKick({ userId: m.userId, name: m.displayName })} aria-label={`${m.displayName} 내보내기`}>
                   내보내기
                 </button>
               )}

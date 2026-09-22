@@ -4,7 +4,7 @@ import { noteServerTime } from '../lib/clock';
 import { navigate } from '../lib/router';
 import { clearStudentSession, getStudentSession, saveStudentSession } from '../lib/session';
 import { useSocket } from '../lib/useSocket';
-import { ConnectionBanner, Logo, Notice, Page, Pill, RETENTION_NOTICE, TopBar, useAsyncAction, useToast } from '../components/ui';
+import { ConnectionBanner, Illustration, Logo, Notice, Page, Pill, RETENTION_NOTICE, TopBar, useAsyncAction, useToast } from '../components/ui';
 import { CreateRoomModal } from './TeacherClass';
 import { statusLabel, wsUrl } from './roomShared';
 
@@ -109,7 +109,10 @@ export function StudentLobbyPage({ classId }: { classId: string }) {
         }
       />
       {rooms.length === 0 ? (
-        <Notice>아직 열린 게임방이 없어요. 선생님이나 방장이 방을 만들면 여기에 나타나요.</Notice>
+        <div className="flex flex-col items-center gap-3">
+          <Illustration src="/images/mascot.webp" className="w-32 max-w-full" />
+          <Notice>아직 열린 게임방이 없어요. 선생님이나 방장이 방을 만들면 여기에 나타나요.</Notice>
+        </div>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {rooms.map((r) => (

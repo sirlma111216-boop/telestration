@@ -177,24 +177,30 @@ export function TimerBar({ secondsLeft, total }: { secondsLeft: number | null; t
 
 // ---------- 항목 표시 ----------
 
-export function PayloadView({ payload, timedOut, skipped, kind, big }: { payload: EntryPayload | null; timedOut?: boolean; skipped?: boolean; kind: 'prompt' | 'drawing' | 'guess'; big?: boolean }) {
+/**
+ * frame: 글자 항목도 그림과 같은 4:3 칸에 담는다.
+ * 결과 공개처럼 제시어 → 그림 → 추측을 한 자리에서 넘겨 볼 때,
+ * 칸 높이가 항목마다 달라지면 아래의 이전/다음 버튼이 오르내려 누르기 어렵다.
+ */
+export function PayloadView({ payload, timedOut, skipped, kind, big, frame }: { payload: EntryPayload | null; timedOut?: boolean; skipped?: boolean; kind: 'prompt' | 'drawing' | 'guess'; big?: boolean; frame?: boolean }) {
   const empty = !payload || (payload.kind === 'drawing' ? payload.strokes.length === 0 : payload.text.length === 0);
+  const box = frame || kind === 'drawing' ? 'aspect-[4/3]' : 'min-h-24';
   if (empty) {
     return (
-      <div className={`paper flex items-center justify-center bg-cream-2 text-center text-ink-2 ${kind === 'drawing' ? 'aspect-[4/3]' : 'min-h-24'} p-4`}>
+      <div data-entry-box className={`paper flex items-center justify-center bg-cream-2 text-center text-ink-2 ${box} p-4`}>
         <p className="font-bold">{skipped ? '이 사람은 방을 나가서 내용이 없어요' : timedOut ? '시간 초과로 내용이 없어요' : '내용이 없어요'}</p>
       </div>
     );
   }
-  if (payload.kind === 'drawing') return <StrokeViewer strokes={payload.strokes} label="그림" />;
+  if (payload.kind === 'drawing') return <StrokeViewer strokes={payload.strokes} label="그림" boxAttr />;
   return (
-    <div className={`paper flex min-h-24 items-center justify-center bg-white p-4 text-center ${big ? 'text-2xl sm:text-3xl' : 'text-lg'} font-extrabold break-keep`}>
-      {payload.text}
+    <div data-entry-box className={`paper flex ${box} items-center justify-center bg-white p-6 text-center ${big ? 'text-2xl sm:text-3xl' : 'text-lg'} font-extrabold break-keep`}>
+      <span>{payload.text}</span>
     </div>
   );
 }
 
-export function EntryCard({ entry, caption }: { entry: EntryView; caption?: string }) {
+export function EntryCard({ entry, caption, frame }: { entry: EntryView; caption?: string; frame?: boolean }) {
   const label = entry.kind === 'prompt' ? '제시어' : entry.kind === 'drawing' ? '그림' : '추측';
   return (
     <div>
@@ -204,7 +210,7 @@ export function EntryCard({ entry, caption }: { entry: EntryView; caption?: stri
         </span>
         {caption && <span>{caption}</span>}
       </div>
-      <PayloadView payload={entry.payload} timedOut={entry.timedOut} skipped={entry.skipped} kind={entry.kind} big={entry.kind !== 'drawing'} />
+      <PayloadView payload={entry.payload} timedOut={entry.timedOut} skipped={entry.skipped} kind={entry.kind} big={entry.kind !== 'drawing'} frame={frame} />
     </div>
   );
 }
@@ -238,6 +244,23 @@ export function Logo({ small }: { small?: boolean }) {
       </svg>
       <span>그림 이어말하기</span>
     </div>
+  );
+}
+
+/** 선택적 장식 그림. 파일이 없거나 로딩에 실패하면 아무것도 그리지 않는다. */
+export function Illustration({ src, alt, className }: { src: string; alt?: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img
+      src={src}
+      alt={alt ?? ''}
+      aria-hidden={alt ? undefined : true}
+      loading="lazy"
+      decoding="async"
+      className={className}
+      onError={() => setFailed(true)}
+    />
   );
 }
 
