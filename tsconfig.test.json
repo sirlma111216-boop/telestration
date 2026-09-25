@@ -30,6 +30,8 @@
     "shared",
     "worker/lib/password.ts",
     "worker/lib/rate.ts",
-    "worker/lib/prompts.ts"
+    "worker/lib/prompts.ts",
+    "worker/lib/fakeArtist.ts",
+    "worker/lib/fakeArtistWords.ts"
   ]
 }

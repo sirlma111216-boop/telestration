@@ -242,3 +242,23 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* 가짜 예술가 찾기: 내 차례인 공유 캔버스 */
+.canvas-wrap.fa-active {
+  box-shadow: 0 0 0 4px var(--color-coral);
+  animation: fa-pulse 1.6s ease-in-out infinite;
+}
+@keyframes fa-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--color-coral);
+  }
+  50% {
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-coral) 45%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .canvas-wrap.fa-active {
+    animation: none;
+  }
+}

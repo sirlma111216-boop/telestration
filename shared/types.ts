@@ -7,11 +7,22 @@
  *  - Room.host: 특정 방의 현재 진행권을 가진 사용자
  *  - Game.players: 이번 판에서 실제로 작업을 쓰는 사람들
  */
+import type { FaSettings, FaView, GameMode } from './fakeArtist';
 
+/**
+ * 방 상태. 앞의 둘은 두 모드가 함께 쓰고, 중간은 모드마다 다르다.
+ *  - 그림 이어말하기: LOBBY → PROMPT_SELECTION → PLAYING → REVEAL_READY → REVEALING → FINISHED
+ *  - 가짜 예술가 찾기: LOBBY → ROLE_REVEAL → DRAWING → DISCUSSION → VOTING → FINAL_GUESS → REVEAL_READY → REVEALING → FINISHED
+ */
 export type RoomStatus =
   | 'LOBBY'
   | 'PROMPT_SELECTION'
   | 'PLAYING'
+  | 'ROLE_REVEAL'
+  | 'DRAWING'
+  | 'DISCUSSION'
+  | 'VOTING'
+  | 'FINAL_GUESS'
   | 'REVEAL_READY'
   | 'REVEALING'
   | 'FINISHED'
@@ -107,6 +118,8 @@ export interface RoomMemberView {
   isPlayer: boolean;
   /** 현재 방장인지 */
   isHost: boolean;
+  /** 가짜 예술가 찾기: 고른 펜 색 (FA_COLORS 인덱스). 고르기 전이면 null. */
+  faColor: number | null;
 }
 
 export interface RoomHostView {
@@ -182,7 +195,9 @@ export interface RoomSnapshot {
   capacity: number;
   status: RoomStatus;
   version: number;
+  gameMode: GameMode;
   settings: RoomSettings;
+  faSettings: FaSettings;
   host: RoomHostView;
   members: RoomMemberView[];
   playerCount: number;
@@ -211,6 +226,8 @@ export interface RoomSnapshot {
   revealBooks: RevealProgressBook[] | null;
   closedReason: string | null;
   expiresAt: number;
+  /** 가짜 예술가 찾기 진행 상태 (이 사람에게 보여도 되는 것만) */
+  fa: FaView | null;
 }
 
 export interface MonitorPlayerView {
@@ -244,6 +261,7 @@ export interface ClassMemberView {
 export interface RoomSummary {
   roomId: string;
   title: string;
+  gameMode: GameMode;
   hostUserId: UserId | null;
   hostName: string | null;
   hostMode: HostMode;

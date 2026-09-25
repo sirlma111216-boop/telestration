@@ -7,6 +7,7 @@ import { useSocket } from '../lib/useSocket';
 import { ConfirmModal, ConnectionBanner, Modal, Notice, Page, Pill, RETENTION_NOTICE, TopBar, useAsyncAction, useToast } from '../components/ui';
 import { statusLabel } from './roomShared';
 import type { DemoBotState } from '../lib/demoBots';
+import { FA_CATEGORIES, FA_DEFAULT_SETTINGS, FA_DISCUSSION_SECONDS, FA_TURN_SECONDS, GAME_MODE_LABEL, type FaSettings, type GameMode } from '@shared/fakeArtist';
 
 function wsUrl(path: string): string {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -296,6 +297,7 @@ function RoomRow({ r, members, busy, onVisit, onTakeOver, onAssign, onClose, bot
     <li className="paper p-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="min-w-0 flex-1 truncate font-extrabold">{r.title}</span>
+        <Pill tone={r.gameMode === 'FAKE_ARTIST' ? 'coral' : 'muted'}>{r.gameMode === 'FAKE_ARTIST' ? '🎭 ' : '📖 '}{GAME_MODE_LABEL[r.gameMode ?? 'TELESTRATION']}</Pill>
         <Pill tone={r.status === 'LOBBY' ? 'mint' : r.status === 'REVEALING' || r.status === 'REVEAL_READY' ? 'violet' : 'coral'}>{statusLabel(r.status)}</Pill>
         <span className="text-sm font-bold">
           {r.playerCount}/{r.capacity}명
@@ -405,8 +407,10 @@ function DemoBotModal({ room, onClose, onStart }: { room: RoomSummary; onClose: 
   );
 }
 
-export function CreateRoomModal({ hostable, teacherOption, onClose, onCreate }: { hostable: ClassMemberView[]; teacherOption: boolean; onClose: () => void; onCreate: (args: { title: string; capacity: number; hostMode: HostMode; hostStudentId?: string | null; settings: { promptMode: 'choice' | 'custom'; drawSeconds: 60 | 90 | 120; guessSeconds: 30 | 45 | 60 } }) => Promise<void> }) {
+export function CreateRoomModal({ hostable, teacherOption, onClose, onCreate }: { hostable: ClassMemberView[]; teacherOption: boolean; onClose: () => void; onCreate: (args: { title: string; capacity: number; hostMode: HostMode; hostStudentId?: string | null; settings: { promptMode: 'choice' | 'custom'; drawSeconds: 60 | 90 | 120; guessSeconds: 30 | 45 | 60 }; gameMode: GameMode; fa: FaSettings }) => Promise<void> }) {
   const [title, setTitle] = useState('');
+  const [gameMode, setGameMode] = useState<GameMode>('TELESTRATION');
+  const [fa, setFa] = useState<FaSettings>(FA_DEFAULT_SETTINGS);
   const [capacity, setCapacity] = useState(12);
   const [hostMode, setHostMode] = useState<HostMode>('observe');
   const [hostStudentId, setHostStudentId] = useState<string>('');
@@ -429,7 +433,7 @@ export function CreateRoomModal({ hostable, teacherOption, onClose, onCreate }: 
             onClick={async () => {
               setBusy(true);
               try {
-                await onCreate({ title: title.trim(), capacity, hostMode, hostStudentId: hostStudentId || null, settings: { promptMode, drawSeconds, guessSeconds } });
+                await onCreate({ title: title.trim(), capacity, hostMode, hostStudentId: hostStudentId || null, settings: { promptMode, drawSeconds, guessSeconds }, gameMode, fa });
               } finally {
                 setBusy(false);
               }
@@ -441,6 +445,20 @@ export function CreateRoomModal({ hostable, teacherOption, onClose, onCreate }: 
       }
     >
       <div className="flex flex-col gap-3">
+        <fieldset className="flex flex-col gap-1">
+          <legend className="font-bold">게임 종류</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {(['TELESTRATION', 'FAKE_ARTIST'] as const).map((g) => (
+              <label key={g} className={`flex cursor-pointer flex-col rounded-xl border-2 px-3 py-2 ${gameMode === g ? 'border-ink bg-violet-2' : 'border-ink/20'}`}>
+                <span className="flex items-center gap-2 font-bold">
+                  <input type="radio" name="gameMode" checked={gameMode === g} onChange={() => setGameMode(g)} />
+                  {g === 'FAKE_ARTIST' ? '🎭' : '📖'} {GAME_MODE_LABEL[g]}
+                </span>
+                <span className="mt-0.5 text-xs text-ink-2">{g === 'FAKE_ARTIST' ? '한 캔버스에 한 획씩, 제시어를 모르는 한 명 찾기' : '그림과 추측을 번갈아 이어 가는 그림책'}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <label className="flex flex-col gap-1">
           <span className="font-bold">방 제목 (2~30자)</span>
           <input className="input" value={title} onChange={(e) => setTitle(e.target.value.slice(0, 30))} placeholder="예: 1모둠" />
@@ -478,6 +496,40 @@ export function CreateRoomModal({ hostable, teacherOption, onClose, onCreate }: 
             <input type="radio" name="hostMode" checked={hostMode === 'play'} onChange={() => setHostMode('play')} /> 함께 참여 (플레이어로 포함, 모니터링 없음)
           </label>
         </fieldset>
+        {gameMode === 'FAKE_ARTIST' ? (
+          <div className="grid grid-cols-3 gap-2">
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-bold">분류</span>
+              <select className="input" value={fa.categoryId} onChange={(e) => setFa({ ...fa, categoryId: e.target.value as FaSettings['categoryId'] })}>
+                {FA_CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-bold">한 차례</span>
+              <select className="input" value={fa.turnSeconds} onChange={(e) => setFa({ ...fa, turnSeconds: Number(e.target.value) as FaSettings['turnSeconds'] })}>
+                {FA_TURN_SECONDS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}초
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs">
+              <span className="font-bold">토론</span>
+              <select className="input" value={fa.discussionSeconds} onChange={(e) => setFa({ ...fa, discussionSeconds: Number(e.target.value) as FaSettings['discussionSeconds'] })}>
+                {FA_DISCUSSION_SECONDS.map((n) => (
+                  <option key={n} value={n}>
+                    {n === 0 ? '없음' : `${n}초`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : (
         <div className="grid grid-cols-3 gap-2">
           <label className="flex flex-col gap-1 text-xs">
             <span className="font-bold">제시어</span>
@@ -507,6 +559,7 @@ export function CreateRoomModal({ hostable, teacherOption, onClose, onCreate }: 
             </select>
           </label>
         </div>
+        )}
       </div>
     </Modal>
   );

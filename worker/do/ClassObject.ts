@@ -340,9 +340,9 @@ export class ClassObject extends DurableObject<Env> {
           if (!m.host_grant) throw new ValidationError('방장 자격이 없는 학생이에요. 먼저 방장으로 지정해 주세요.');
           if (m.current_room_id) throw new ValidationError('이미 다른 방에 참여 중인 학생이에요.');
           if (this.hostingRoomOf(m.student_id)) throw new ValidationError('이미 다른 방을 운영 중인 학생이에요.');
-          return this.createRoom({ title, capacity, hostMode, settings: msg.settings, host: { userId: m.student_id, displayName: m.display_name, isTeacher: false } });
+          return this.createRoom({ title, capacity, hostMode, settings: msg.settings, gameMode: msg.gameMode, fa: msg.fa, host: { userId: m.student_id, displayName: m.display_name, isTeacher: false } });
         }
-        return this.createRoom({ title, capacity, hostMode, settings: msg.settings, host: { userId: `teacher:${meta.teacherId}`, displayName: meta.teacherName, isTeacher: true } });
+        return this.createRoom({ title, capacity, hostMode, settings: msg.settings, gameMode: msg.gameMode, fa: msg.fa, host: { userId: `teacher:${meta.teacherId}`, displayName: meta.teacherName, isTeacher: true } });
       }
       case 'room.assignHost': {
         const room = this.roomSummary(msg.roomId);
@@ -387,6 +387,8 @@ export class ClassObject extends DurableObject<Env> {
     capacity: number;
     hostMode: HostMode;
     settings?: Partial<RoomInitParams['settings']>;
+    gameMode?: RoomInitParams['gameMode'];
+    fa?: RoomInitParams['fa'];
     host: { userId: string; displayName: string; isTeacher: boolean };
   }): Promise<{ roomId: string }> {
     const meta = this.meta!;
@@ -406,6 +408,8 @@ export class ClassObject extends DurableObject<Env> {
       hostMode: args.hostMode,
       settings,
       host: args.host,
+      gameMode: args.gameMode,
+      fa: args.fa,
     };
     const now = Date.now();
     // 학생 방장은 방의 구성원이 되므로 예약을 먼저 기록한다
@@ -417,7 +421,7 @@ export class ClassObject extends DurableObject<Env> {
       );
     }
     const placeholder: RoomSummary = {
-      roomId, title: args.title, hostUserId: args.host.userId, hostName: args.host.displayName, hostMode: args.hostMode,
+      roomId, title: args.title, gameMode: args.gameMode === 'FAKE_ARTIST' ? 'FAKE_ARTIST' : 'TELESTRATION', hostUserId: args.host.userId, hostName: args.host.displayName, hostMode: args.hostMode,
       playerCount: 0, capacity: args.capacity, status: 'LOBBY', revision: 0, updatedAt: now,
     };
     this.ctx.storage.sql.exec('INSERT INTO rooms (room_id, summary, revision, closed, created_at) VALUES (?, ?, 0, 0, ?)', roomId, JSON.stringify(placeholder), now);
@@ -451,7 +455,7 @@ export class ClassObject extends DurableObject<Env> {
         const title = validateRoomTitle(msg.title);
         const capacity = validateCapacity(msg.capacity);
         const hostMode: HostMode = msg.hostMode === 'play' ? 'play' : 'observe';
-        return this.createRoom({ title, capacity, hostMode, settings: msg.settings, host: { userId: studentId, displayName: m.display_name, isTeacher: false } });
+        return this.createRoom({ title, capacity, hostMode, settings: msg.settings, gameMode: msg.gameMode, fa: msg.fa, host: { userId: studentId, displayName: m.display_name, isTeacher: false } });
       }
       case 'room.join':
         return this.joinRoom(m, msg.roomId);

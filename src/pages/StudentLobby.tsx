@@ -7,6 +7,7 @@ import { useSocket } from '../lib/useSocket';
 import { ConnectionBanner, Illustration, Logo, Notice, Page, PageBackdrop, Pill, RETENTION_NOTICE, TopBar, useAsyncAction, useToast } from '../components/ui';
 import { CreateRoomModal } from './TeacherClass';
 import { statusLabel, wsUrl } from './roomShared';
+import { GAME_MODE_LABEL } from '@shared/fakeArtist';
 
 const CLASS_HELLO = { type: 'class.ping' };
 
@@ -159,6 +160,9 @@ function RoomCard({ r, busy, onJoin }: { r: RoomSummary; busy: boolean; onJoin: 
       <div className="flex items-start justify-between gap-2">
         <h3 className="min-w-0 truncate text-lg font-extrabold">{r.title}</h3>
         <Pill tone={r.status === 'LOBBY' ? 'mint' : 'coral'}>{statusLabel(r.status)}</Pill>
+      </div>
+      <div>
+        <Pill tone={r.gameMode === 'FAKE_ARTIST' ? 'coral' : 'muted'}>{r.gameMode === 'FAKE_ARTIST' ? '🎭 ' : '📖 '}{GAME_MODE_LABEL[r.gameMode ?? 'TELESTRATION']}</Pill>
       </div>
       <div className="text-sm text-ink-2">
         방장 {r.hostName ?? '없음'} · 플레이 {r.playerCount}/{r.capacity}명

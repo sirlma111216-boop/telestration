@@ -14,6 +14,16 @@ export function statusLabel(s: RoomStatus): string {
       return '결과 공개 중';
     case 'FINISHED':
       return '공개 완료';
+    case 'ROLE_REVEAL':
+      return '비밀 카드 확인';
+    case 'DRAWING':
+      return '한 획씩 그리는 중';
+    case 'DISCUSSION':
+      return '토론 중';
+    case 'VOTING':
+      return '투표 중';
+    case 'FINAL_GUESS':
+      return '최종 추측';
     case 'CLOSED':
       return '닫힘';
   }

@@ -13,6 +13,8 @@ import { DrawView, GuessView, PromptSelectView } from './PlayViews';
 import { MonitorView } from './MonitorView';
 import { RevealView, type Reaction } from './RevealView';
 import { statusLabel, wsUrl } from './roomShared';
+import { FaColorPicker, FaGame, FaRulesHelp, FaSettingsRows, type FaLiveDraft } from './FakeArtistViews';
+import { FA_COLORS, GAME_MODE_LABEL, GAME_MODES, type GameMode } from '@shared/fakeArtist';
 
 const ROOM_HELLO = { type: 'room.ping' };
 
@@ -21,6 +23,7 @@ const ROOM_HELLO = { type: 'room.ping' };
  * 넓은 본문 폭이 필요하다. 좁은 폭에 사이드바가 들어가면 칸이 찌그러진다.
  */
 function usesWideLayout(snap: RoomSnapshot): boolean {
+  if (snap.gameMode === 'FAKE_ARTIST') return snap.status !== 'CLOSED';
   if (snap.me.canMonitor) return true;
   if (snap.status === 'LOBBY' || snap.status === 'REVEALING' || snap.status === 'FINISHED') return true;
   return snap.status === 'PLAYING' && snap.assignment?.kind === 'drawing';
@@ -39,6 +42,7 @@ export function RoomPage({ roomId, mode, classId }: Props) {
   const [fatal, setFatal] = useState<string | null>(null);
   const [monitor, setMonitor] = useState<{ gameId: string | null; players: MonitorPlayerView[]; synced: boolean }>({ gameId: null, players: [], synced: false });
   const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [faLive, setFaLive] = useState<FaLiveDraft | null>(null);
   const monitoringRef = useRef(false);
 
   const onMessage = useCallback(
@@ -48,6 +52,11 @@ export function RoomPage({ roomId, mode, classId }: Props) {
           const s = m.snapshot as RoomSnapshot;
           noteServerTime(s.serverTime);
           setSnap((prev) => (prev && prev.roomId === s.roomId && prev.version > s.version ? prev : s));
+          break;
+        }
+        case 'fa.draft': {
+          const d = m as unknown as FaLiveDraft;
+          setFaLive((prev) => (prev && prev.turnId === d.turnId && prev.gameId === d.gameId && prev.revision > d.revision ? prev : d));
           break;
         }
         case 'monitor.snapshot':
@@ -163,7 +172,7 @@ export function RoomPage({ roomId, mode, classId }: Props) {
       {!snap.observers.teacher && snap.observers.host && !snap.me.isHost && <div className="mb-3 text-center text-xs font-bold text-ink-2">👀 방장 참관 중</div>}
       {!snap.me.primaryConnection && <Notice tone="coral">다른 탭이나 창에서 이 방을 열고 있어요. 이 화면에서는 볼 수만 있어요.</Notice>}
       <div className="mt-3">
-        <RoomBody snap={snap} sock={sock.current!} monitor={monitor} reactions={reactions} connected={connected} mode={mode} />
+        <RoomBody snap={snap} sock={sock.current!} monitor={monitor} reactions={reactions} connected={connected} mode={mode} faLive={faLive} />
       </div>
     </Page>
   );
@@ -235,8 +244,11 @@ function RoomHeader({ snap, mode, classId, sock }: { snap: RoomSnapshot; mode: '
   );
 }
 
-function RoomBody({ snap, sock, monitor, reactions, connected, mode }: { snap: RoomSnapshot; sock: import('../lib/socket').ReconnectingSocket; monitor: { gameId: string | null; players: MonitorPlayerView[]; synced: boolean }; reactions: Reaction[]; connected: boolean; mode: 'student' | 'teacher' }) {
+function RoomBody({ snap, sock, monitor, reactions, connected, mode, faLive }: { snap: RoomSnapshot; sock: import('../lib/socket').ReconnectingSocket; monitor: { gameId: string | null; players: MonitorPlayerView[]; synced: boolean }; reactions: Reaction[]; connected: boolean; mode: 'student' | 'teacher'; faLive: FaLiveDraft | null }) {
   const me = snap.me;
+  if (snap.gameMode === 'FAKE_ARTIST' && snap.status !== 'LOBBY' && snap.status !== 'CLOSED') {
+    return <FaGame snap={snap} sock={sock} live={faLive} reactions={reactions} connected={connected} />;
+  }
   switch (snap.status) {
     case 'LOBBY':
       return <LobbyView snap={snap} sock={sock} mode={mode} />;
@@ -268,6 +280,9 @@ function RoomBody({ snap, sock, monitor, reactions, connected, mode }: { snap: R
       );
     case 'CLOSED':
       return <Notice tone="coral">{snap.closedReason ?? '방이 닫혔어요.'}</Notice>;
+    default:
+      // 가짜 예술가 찾기 전용 단계인데 모드가 맞지 않는 경우 (전환 직후의 늦은 스냅샷)
+      return <WaitingView title="화면을 맞추는 중" text="잠시만 기다려 주세요." />;
   }
 }
 
@@ -327,16 +342,22 @@ function LobbyView({ snap, sock, mode }: { snap: RoomSnapshot; sock: import('../
   const [closeConfirm, setCloseConfirm] = useState(false);
   const myMember = snap.members.find((m) => m.userId === me.userId);
   const players = snap.members.filter((m) => m.isPlayer);
-  const allReady = players.length >= 4 && players.every((p) => p.ready && p.connected);
+  const isFa = snap.gameMode === 'FAKE_ARTIST';
+  const allReady = players.length >= 4 && players.every((p) => p.ready && p.connected && (!isFa || p.faColor != null));
   const startProblems = useMemo(() => {
     const out: string[] = [];
     if (players.length < 4) out.push(`플레이어가 ${4 - players.length}명 더 필요해요`);
+    if (isFa) {
+      const noColor = players.filter((p) => p.faColor == null);
+      if (noColor.length) out.push(`펜 색 안 고름: ${noColor.map((p) => p.displayName).join(', ')}`);
+    }
     const notReady = players.filter((p) => !p.ready);
     if (notReady.length) out.push(`준비 안 함: ${notReady.map((p) => p.displayName).join(', ')}`);
     const offline = players.filter((p) => !p.connected);
     if (offline.length) out.push(`연결 끊김: ${offline.map((p) => p.displayName).join(', ')}`);
     return out;
-  }, [players]);
+  }, [players, isFa]);
+  const [modeConfirm, setModeConfirm] = useState<GameMode | null>(null);
 
   const update = (patch: Record<string, unknown>) => run(() => sock.command({ type: 'room.updateSettings', expectedVersion: snap.version, ...patch }));
 
@@ -364,6 +385,12 @@ function LobbyView({ snap, sock, mode }: { snap: RoomSnapshot; sock: import('../
                   {m.isHost && <Pill tone="violet">방장</Pill>}
                   {!m.isPlayer && <Pill tone="muted">참관</Pill>}
                   {m.isPlayer && (m.ready ? <Pill tone="mint">준비됨</Pill> : <Pill tone="muted">대기</Pill>)}
+                  {isFa && m.isPlayer && m.faColor != null && (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold">
+                      <span aria-hidden="true" className="inline-block h-3.5 w-3.5 rounded-full border border-ink/40" style={{ background: FA_COLORS[m.faColor]?.hex }} />
+                      {FA_COLORS[m.faColor]?.name}
+                    </span>
+                  )}
                   {!m.connected && <Pill tone="coral">끊김</Pill>}
                 </div>
               </div>
@@ -375,11 +402,13 @@ function LobbyView({ snap, sock, mode }: { snap: RoomSnapshot; sock: import('../
             </li>
           ))}
         </ul>
+        {isFa && <FaColorPicker snap={snap} sock={sock} />}
         {myMember?.isPlayer && (
-          <button className={`btn text-lg ${myMember.ready ? '' : 'btn-primary'}`} disabled={busy} onClick={() => run(() => sock.command({ type: 'room.ready', ready: !myMember.ready }))}>
-            {myMember.ready ? '준비 취소' : '준비 완료!'}
+          <button className={`btn text-lg ${myMember.ready ? '' : 'btn-primary'}`} disabled={busy || (isFa && !myMember.ready && myMember.faColor == null)} onClick={() => run(() => sock.command({ type: 'room.ready', ready: !myMember.ready }))}>
+            {myMember.ready ? '준비 취소' : isFa && myMember.faColor == null ? '먼저 펜 색을 골라 주세요' : '준비 완료!'}
           </button>
         )}
+        {isFa && <FaRulesHelp />}
         {me.canControl && (
           <div className="paper flex flex-col gap-2 bg-violet-2 p-4">
             <button className="btn btn-primary text-lg" disabled={busy || !allReady} onClick={() => run(() => sock.command({ type: 'game.start', expectedVersion: snap.version }))}>
@@ -400,6 +429,19 @@ function LobbyView({ snap, sock, mode }: { snap: RoomSnapshot; sock: import('../
 
       <aside className="paper flex flex-col gap-3 p-4">
         <h3 className="font-extrabold">방 설정</h3>
+        <SettingRow label="게임 종류">
+          {me.canControl ? (
+            <select className="input" value={snap.gameMode} disabled={busy} onChange={(e) => setModeConfirm(e.target.value as GameMode)}>
+              {GAME_MODES.map((g) => (
+                <option key={g} value={g}>
+                  {GAME_MODE_LABEL[g]}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="font-bold">{GAME_MODE_LABEL[snap.gameMode]}</span>
+          )}
+        </SettingRow>
         <SettingRow label="방장 모드">
           {me.canControl ? (
             <select className="input" value={snap.host.mode} disabled={busy} onChange={(e) => update({ hostMode: e.target.value })}>
@@ -423,6 +465,10 @@ function LobbyView({ snap, sock, mode }: { snap: RoomSnapshot; sock: import('../
             <span>{snap.capacity}명</span>
           )}
         </SettingRow>
+        {isFa ? (
+          <FaSettingsRows snap={snap} busy={busy} update={update} playerCount={players.length} />
+        ) : (
+          <>
         <SettingRow label="제시어">
           {me.canControl ? (
             <select className="input" value={snap.settings.promptMode} disabled={busy} onChange={(e) => update({ promptMode: e.target.value })}>
@@ -459,6 +505,8 @@ function LobbyView({ snap, sock, mode }: { snap: RoomSnapshot; sock: import('../
             <span>{snap.settings.guessSeconds}초</span>
           )}
         </SettingRow>
+          </>
+        )}
         {me.canControl && <p className="text-xs text-ink-2">설정을 바꾸면 모두의 준비 상태가 초기화돼요.</p>}
         {me.canControl && (
           <button className="btn btn-danger btn-sm" onClick={() => setCloseConfirm(true)}>
@@ -468,6 +516,15 @@ function LobbyView({ snap, sock, mode }: { snap: RoomSnapshot; sock: import('../
       </aside>
 
       {kick && <ConfirmModal title="참가자 내보내기" message={`${kick.name} 을(를) 방에서 내보낼까요?`} confirmLabel="내보내기" danger onClose={() => setKick(null)} onConfirm={() => run(() => sock.command({ type: 'room.kick', userId: kick.userId }))} />}
+      {modeConfirm && modeConfirm !== snap.gameMode && (
+        <ConfirmModal
+          title="게임 종류 바꾸기"
+          message={`'${GAME_MODE_LABEL[modeConfirm]}'(으)로 바꿀까요? 모두의 준비 상태와 고른 펜 색이 초기화돼요.`}
+          confirmLabel="바꾸기"
+          onClose={() => setModeConfirm(null)}
+          onConfirm={() => update({ gameMode: modeConfirm })}
+        />
+      )}
       {closeConfirm && <ConfirmModal title="방 닫기" message="방을 닫으면 모두 클래스 로비로 돌아가요." confirmLabel="닫기" danger onClose={() => setCloseConfirm(false)} onConfirm={() => run(() => sock.command({ type: 'room.close', confirm: true }))} />}
     </div>
   );

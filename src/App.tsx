@@ -10,6 +10,7 @@ import { StudentLobbyPage } from './pages/StudentLobby';
 import { RoomPage } from './pages/RoomPage';
 import { getStudentSession, lastClassId } from './lib/session';
 import { CanvasPlayground } from './pages/CanvasPlayground';
+import { FaPlayground } from './pages/FaPlayground';
 
 type Teacher = { teacherId: string; name: string };
 
@@ -30,6 +31,7 @@ export default function App() {
 
   if (path === '/' || path === '') page = <HomePage />;
   else if (import.meta.env.DEV && path === '/dev/canvas') page = <CanvasPlayground />;
+  else if (import.meta.env.DEV && path === '/dev/fa') page = <FaPlayground />;
   else if ((params = matchPath('/join/:code', path))) page = <HomePage presetCode={params.code!} />;
   else if (path.startsWith('/teacher')) {
     if (teacher === undefined) page = <p className="py-10 text-center text-ink-2">확인하는 중…</p>;

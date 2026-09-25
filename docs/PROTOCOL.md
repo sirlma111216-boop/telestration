@@ -72,6 +72,17 @@
 | C→S | `room.restart` | 방장 | `{expectedVersion}` FINISHED 에서만 |
 | C→S | `room.close` | 방장 | `{confirm: true}` LOBBY·FINISHED 에서만 |
 | C→S | `room.forceClose` | 교사 | `{confirm: true}` |
+| C→S | `room.updateSettings` (가짜 예술가) | 방장 | `{expectedVersion, gameMode?, faCategoryId?, faTurnSeconds?, faDiscussionSeconds?}` 모드를 바꾸면 준비·펜 색 초기화 |
+| C→S | `fa.color` | 플레이어 | `{colorIndex}` 대기실 · 먼저 고른 사람이 가짐 |
+| C→S | `fa.roleAck` | 플레이어 | `{gameId, phaseId}` |
+| C→S | `fa.draft` | 현재 차례 | `{gameId, turnId, revision, stroke}` ack 없음 · 검증 후 모두에게 전달 · 1.5초 묶음 저장(마지막 것은 반드시) |
+| C→S | `fa.redo` | 현재 차례 | `{gameId, turnId, revision}` revision 을 올려야 함 · 낮은 revision 의 늦은 초안·확정은 무시·거부 |
+| C→S | `fa.commit` | 현재 차례 | `{gameId, turnId, revision, stroke}` 경로 하나 · 저장 후 ack · 멱등 |
+| C→S | `fa.vote` | 플레이어 | `{gameId, phaseId, targetId}` 자기 자신 금지 · 변경 금지 |
+| C→S | `fa.guess` | 가짜 예술가 | `{gameId, phaseId, text}` ≤40자 · 다른 사람에게 알리지 않음 |
+| C→S | `fa.reveal.start` / `fa.reveal.next` | 방장 | `{gameId}` / `{gameId, expectedStep}` 한 단계씩 앞으로만 |
+| C→S | `fa.highlight` | 방장 | `{gameId, playerId|null, expectedRevision}` FINISHED 에서만 |
+| S→C | `fa.draft` | 모두 (그리는 사람 제외) | `{gameId, turnId, playerId, revision, stroke|null}` |
 | S→C | `room.snapshot` | – | `RoomSnapshot` — 권한별로 다르게 구성 (아래) |
 | S→C | `monitor.snapshot` / `monitor.update` | 구독한 참관자 | 플레이어별 초안 |
 | S→C | `reveal.reaction` | 모두 | `{reaction, from}` |
@@ -89,12 +100,33 @@
 
 학생 스냅샷에는 다른 사람의 초안, 미공개 항목, 전체 그림책 목록이 절대 포함되지 않는다.
 
+가짜 예술가 찾기의 `snap.fa` 는 `buildFaView()` 가 보는 사람마다 새로 만든다.
+
+| 필드 | 예술가 | 가짜 예술가 | 참관 방장 / 교사 |
+|---|---|---|---|
+| `me.card` | 분류 + 제시어 | 분류 + 역할 (**제시어 키 없음**) | `null` |
+| `me.myVote` | 내 표 | 내 표 | `null` |
+| `me.canGuess` / `me.guessSubmitted` | `false` | 최종 추측 중·제출 여부 | `false` |
+| `votedCount` / `voterTotal` | 숫자만 | 숫자만 | 숫자만 |
+| `reveal.votes`·`voteResult` | 1단계부터 | 1단계부터 | 1단계부터 |
+| `reveal.fakeArtistId`·`caught` | 2단계부터 | 2단계부터 | 2단계부터 |
+| `reveal.finalGuess` | 3단계부터 | 3단계부터 | 3단계부터 |
+| `reveal.word`·`guessCorrect`·`outcome` | 4단계부터 | 4단계부터 | 4단계부터 |
+
+진행권을 가진 방장도 예외가 아니다 — 결과는 공개하는 순서대로만 받는다.
+
 ## 상태 머신
 
 ```
 LOBBY → PROMPT_SELECTION → PLAYING → REVEAL_READY → REVEALING → FINISHED → LOBBY (다시 시작)
                                   (어디서든 권한 있는 종료 → CLOSED)
+
+가짜 예술가 찾기:
+LOBBY → ROLE_REVEAL → DRAWING(×2N) → DISCUSSION(0초면 생략) → VOTING → FINAL_GUESS(항상 20초)
+      → REVEAL_READY → REVEALING(0~3단계) → FINISHED(4단계) → LOBBY (다시 하기)
 ```
+
+- 가짜 예술가 찾기의 단계 전환은 `fa.phaseId`(그리기에서는 차례 ID 를 겸함) 기준으로 한 번만 일어난다. 요청을 처리하기 전에 지난 기한부터 따라잡는다.
 
 - 단계 전환은 `stageId` 를 기준으로 한 번만 일어난다 (전원 제출 ∨ 알람 ∨ 늦은 요청 처리 시 기한 확인).
 - `version`: 방 상태 버전. 설정 변경·시작·다시 시작 명령은 `expectedVersion` 을 요구한다.

@@ -17,7 +17,7 @@ export interface RoomFixture {
  * 교사 로그인 → 클래스 → 학생 방장 지정 → 방 생성 → n 명 입장·준비 까지.
  * hostMode 'observe' 면 방장은 플레이어가 아니고, 'play' 면 방장이 플레이어에 포함된다 (n 에 방장 포함).
  */
-export async function setupRoom(n: number, hostMode: 'observe' | 'play' = 'observe', opts: { capacity?: number; ready?: boolean; className?: string } = {}): Promise<RoomFixture> {
+export async function setupRoom(n: number, hostMode: 'observe' | 'play' = 'observe', opts: { capacity?: number; ready?: boolean; className?: string; create?: Record<string, unknown> } = {}): Promise<RoomFixture> {
   const teacher = await teacherLogin();
   const cls = await createClass(teacher, opts.className ?? `클래스 ${n}명`);
   const tc = teacherClassSocket(teacher, cls.classId);
@@ -27,7 +27,7 @@ export async function setupRoom(n: number, hostMode: 'observe' | 'play' = 'obser
   const hostClass = classSocket(hostStudent);
   await hostClass.opened;
   await hostClass.waitFor((c) => !!c.snapshot?.me.hostGrant, 5000, 'host grant');
-  const { roomId } = await hostClass.command<{ roomId: string }>({ type: 'room.create', title: `${n}인 방`, capacity: opts.capacity ?? 12, hostMode, settings: { drawSeconds: 60, guessSeconds: 30 } });
+  const { roomId } = await hostClass.command<{ roomId: string }>({ type: 'room.create', title: `${n}인 방`, capacity: opts.capacity ?? 12, hostMode, settings: { drawSeconds: 60, guessSeconds: 30 }, ...opts.create });
   const host = roomSocket(hostStudent, roomId);
   await host.opened;
   const playerCount = hostMode === 'play' ? n - 1 : n;

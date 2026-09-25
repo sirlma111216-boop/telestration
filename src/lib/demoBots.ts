@@ -6,6 +6,10 @@
  *   - 방 입장: 클래스 WebSocket 으로 room.join (학생 로비와 같은 명령)
  *   - 준비·제시어·제출: 방 WebSocket 으로 room.ready / prompt.choose / entry.submit
  *   - 그리는 중에는 draft.live 와 draft.save 도 보낸다 (그림판 화면과 같은 순서)
+ *   - 가짜 예술가 찾기: fa.color → room.ready → fa.roleAck → (내 차례) fa.draft → fa.commit → fa.vote → (가짜라면) fa.guess
+ *
+ *   주의: 봇의 비밀 카드는 이 탭(교사 브라우저)으로 내려온다. 개발자 도구로 들여다볼 수 있으므로
+ *   공정해야 하는 판에는 봇을 섞지 않는다 — 봇은 리허설용이다.
  *   서버에 지름길을 만들지 않았다. 봇이 통과하는 길은 학생이 통과하는 길과 같다.
  *   따라서 봇으로 잘 돌아간다고 해서 학생 화면이 검증된 것은 아니다 —
  *   실제 브라우저 두 개로 왕복하는 검증(tests/e2e/ui.spec.ts)은 따로 있다.
@@ -13,6 +17,7 @@
  * 이 파일은 교사 화면에서 버튼을 누를 때만 내려받는다(동적 import). 학생 기기는 받지 않는다.
  */
 import { LIMITS, type EntryPayload, type RoomSnapshot, type Stroke } from '@shared/types';
+import { FA_COLORS, FA_STROKE_WIDTH } from '@shared/fakeArtist';
 import { api } from './api';
 import { serverNow } from './clock';
 import { ReconnectingSocket } from './socket';
@@ -37,6 +42,8 @@ const GUESSES = [
   '스케이트 타는 오리',
 ];
 const CUSTOM_PROMPTS = ['줄넘기하는 하마', '우주에서 라면 먹기', '눈 오는 날의 붕어빵', '춤추는 선인장'];
+/** 가짜 예술가 봇의 최종 추측 — 제시어를 모르니 흔한 낱말을 아무거나 댄다 */
+const FA_GUESSES = ['고양이', '사과', '자동차', '의자', '바다', '나무', '의사', '축구', '기차', '우산'];
 
 const STORAGE_KEY = 'pr.demoBots.previous';
 
@@ -81,6 +88,22 @@ function randomDrawing(): Stroke[] {
     strokes.push({ t: 'pen', c: pick(LIMITS.colors), w: pick(LIMITS.penWidths), p: points });
   }
   return strokes;
+}
+
+/** 가짜 예술가 찾기용 한 획: 이어진 선 하나 */
+function randomOneStroke(colorHex: string): Stroke {
+  const points: number[] = [];
+  let x = rnd(160, 640);
+  let y = rnd(140, 460);
+  let dir = rnd(0, Math.PI * 2);
+  const steps = 10 + Math.floor(Math.random() * 20);
+  for (let k = 0; k < steps; k++) {
+    points.push(Math.round(x), Math.round(y));
+    dir += rnd(-0.6, 0.6);
+    x = Math.max(10, Math.min(LIMITS.canvasWidth - 10, x + Math.cos(dir) * 22));
+    y = Math.max(10, Math.min(LIMITS.canvasHeight - 10, y + Math.sin(dir) * 22));
+  }
+  return { t: 'pen', c: colorHex, w: FA_STROKE_WIDTH, p: points };
 }
 
 /**
@@ -138,6 +161,7 @@ class Bot {
   private timers: number[] = [];
   /** 준비는 한 번만 누르는 일이 아니다 — 방장이 설정을 바꾸면 초기화된다 */
   private readyTimer: number | null = null;
+  private colorTimer: number | null = null;
   /** 이 봇의 속도. 사람마다 다르게 둔다. */
   private pace = rnd(1.0, 1.0);
   /** 끝까지 못 하는 사람도 있어야 "언제 넘어갈까" 판단을 연습할 수 있다 */
@@ -193,6 +217,20 @@ class Bot {
       // 대기실로 돌아왔다 = 새 판. 지난 판의 기록을 지워 다음 판에도 움직이게 한다.
       this.acted.clear();
       const me = s.members.find((m) => m.userId === s.me.userId);
+      // 가짜 예술가 찾기: 준비 전에 펜 색부터 고른다. 다른 봇과 겹치면 서버가 거절하고, 다음 스냅샷에서 다른 색으로 다시 한다.
+      const needsColor = s.gameMode === 'FAKE_ARTIST' && s.me.isPlayer && !!me && me.faColor == null;
+      if (needsColor) {
+        if (this.colorTimer === null) {
+          this.colorTimer = window.setTimeout(() => {
+            this.colorTimer = null;
+            const taken = new Set(s.members.filter((m) => m.faColor != null).map((m) => m.faColor));
+            const free = FA_COLORS.map((_, i) => i).filter((i) => !taken.has(i));
+            if (free.length) this.send({ type: 'fa.color', colorIndex: pick(free) });
+          }, rnd(300, 2000));
+          this.timers.push(this.colorTimer);
+        }
+        return;
+      }
       const needsReady = s.me.isPlayer && !!me && !me.ready;
       if (needsReady && this.readyTimer === null) {
         // 방장이 설정을 바꾸면 준비가 풀린다. 그때마다 다시 누른다.
@@ -205,6 +243,11 @@ class Bot {
         window.clearTimeout(this.readyTimer);
         this.readyTimer = null;
       }
+      return;
+    }
+
+    if (s.gameMode === 'FAKE_ARTIST') {
+      this.onFaSnapshot(s);
       return;
     }
 
@@ -235,11 +278,54 @@ class Bot {
     }
   }
 
+  private onFaSnapshot(s: RoomSnapshot): void {
+    const fa = s.fa;
+    if (!fa || !fa.me.isPlayer) return;
+    const meId = s.me.userId;
+    if (s.status === 'ROLE_REVEAL' && !fa.me.roleAcked) {
+      this.once(`fa-ack:${fa.phaseId}`, rnd(800, this.slow ? 7000 : 3000), () => {
+        this.send({ type: 'fa.roleAck', gameId: fa.gameId, phaseId: fa.phaseId });
+      });
+      return;
+    }
+    if (s.status === 'DRAWING' && fa.activePlayerId === meId) {
+      const mine = fa.players.find((p) => p.userId === meId);
+      const color = FA_COLORS[mine?.color ?? 0]!.hex;
+      const stroke = randomOneStroke(color);
+      const half = { ...stroke, p: stroke.p.slice(0, Math.max(2, Math.floor(stroke.p.length / 4) * 2)) };
+      const commitAt = this.delayWithin(s.deadlineAt, 3000) * 0.5;
+      // 그리는 화면과 같은 순서: 그리는 중 초안 → 전체 초안 → 확정
+      this.once(`fa-d1:${fa.phaseId}`, commitAt * 0.4, () => {
+        this.sock?.fire({ type: 'fa.draft', gameId: fa.gameId, turnId: fa.phaseId, revision: 0, stroke: half });
+      });
+      this.once(`fa-d2:${fa.phaseId}`, commitAt * 0.8, () => {
+        this.sock?.fire({ type: 'fa.draft', gameId: fa.gameId, turnId: fa.phaseId, revision: 0, stroke });
+      });
+      this.once(`fa-commit:${fa.phaseId}`, commitAt, () => {
+        this.send({ type: 'fa.commit', gameId: fa.gameId, turnId: fa.phaseId, revision: 0, stroke });
+      });
+      return;
+    }
+    if (s.status === 'VOTING' && !fa.me.myVote) {
+      this.once(`fa-vote:${fa.phaseId}`, this.delayWithin(s.deadlineAt, 4000) * 0.6, () => {
+        const others = fa.players.filter((p) => p.userId !== meId && !p.left);
+        if (others.length) this.send({ type: 'fa.vote', gameId: fa.gameId, phaseId: fa.phaseId, targetId: pick(others).userId });
+      });
+      return;
+    }
+    if (s.status === 'FINAL_GUESS' && fa.me.canGuess) {
+      this.once(`fa-guess:${fa.phaseId}`, rnd(2000, 6000), () => {
+        this.send({ type: 'fa.guess', gameId: fa.gameId, phaseId: fa.phaseId, text: pick(FA_GUESSES) });
+      });
+    }
+  }
+
   /** 방에서 나간다 (학생이 '나가기' 를 누르는 것과 같은 명령) */
   async leave(): Promise<void> {
     for (const t of this.timers) window.clearTimeout(t);
     this.timers = [];
     this.readyTimer = null;
+    this.colorTimer = null;
     try {
       await this.sock?.command({ type: 'room.leave' }, 4000);
     } catch {
@@ -253,6 +339,7 @@ class Bot {
     for (const t of this.timers) window.clearTimeout(t);
     this.timers = [];
     this.readyTimer = null;
+    this.colorTimer = null;
     this.sock?.close();
     this.sock = null;
   }
