@@ -50,7 +50,16 @@ export class DirectoryObject extends DurableObject<Env> {
         );
         CREATE INDEX IF NOT EXISTS classes_teacher ON classes(teacher_id);
       `);
+      await this.ctx.storage.setAlarm(Date.now() + 60 * 60 * 1000);
     });
+  }
+
+  async alarm(): Promise<void> {
+    const now = Date.now();
+    this.ctx.storage.sql.exec('DELETE FROM sessions WHERE expires_at <= ?', now);
+    this.ctx.storage.sql.exec('DELETE FROM login_fails WHERE window_start <= ?', now - LOGIN_WINDOW_MS);
+    this.ctx.storage.sql.exec('DELETE FROM classes WHERE ended = 1 AND created_at <= ?', now - LIMITS.dataTtlMs * 2);
+    await this.ctx.storage.setAlarm(now + 60 * 60 * 1000);
   }
 
   // ---------- 교사 인증 ----------
